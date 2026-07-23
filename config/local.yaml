@@ -1,5 +1,4 @@
-env: "local"  # "local","development","production"
-
+env: "local"  # "local","development","production (pro)"
 http-server:
   host: "localhost"
   port: 8080
