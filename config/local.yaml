@@ -1,8 +1,13 @@
-env: "local"  # "local","development","production (pro)"
+env: "local"  # "local","development","production (prod)"
 http-server:
   host: "localhost"
   port: 8080
   timeout: 4s   # time for raeding request body, default is 4s
   idle-timeout: 60s  # time for idle connection, default is 60s
 
-  
+db-conn:
+  host: "localhost"
+  port: 5432
+  user: postgres
+  database: shop
+  sslmode: disable
