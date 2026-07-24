@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -12,8 +13,9 @@ import (
 
 
 type Config struct {
-	Env        string 	`yaml:"env" env-default:"local"`
-	HttpServer	`yaml:"http-server"`
+	Env        	string 	`yaml:"env" env-default:"local"`
+	HttpServer			`yaml:"http-server"`
+	DatabaseDSN					`yaml:"db-conn"`
 }
 
 type HttpServer struct {
@@ -22,6 +24,18 @@ type HttpServer struct {
 	Timeout     time.Duration   `yaml:"timeout" env-default:"4s"`
 	IdleTimeout time.Duration   `yaml:"idle-timeout" env-default:"60s"`
 }
+
+
+type DatabaseDSN struct {
+	Host 		string			`yaml:"host" env-default:"localhost"`	
+	Port 		int				`yaml:"port" env-default:"5432"`
+	User		string			`yaml:"user" env-default:"postgres"`
+	Database 	string			`yaml:"database" env-default:"shop"`
+	SSLMode		string			`yaml:"sslmode" env-default:"disable"`
+	Password 	string			`yaml:"-"`
+}
+
+
 
 
 
@@ -33,8 +47,12 @@ func MustLoadConfig() *Config {
 		log.Fatal("No .env file exists")
 	}
 	
-	
+	// get environment variables
 	configPath := os.Getenv("CONFIG_PATH")
+	DB_PASSWORD    :=  os.Getenv("DB_PASSWORD")
+
+
+
 	if configPath == "" {
 		log.Fatal("CONFIG_PATH environment variable is not set")
 	}
@@ -47,6 +65,8 @@ func MustLoadConfig() *Config {
 
 	var cfg Config
 
+	cfg.Password = DB_PASSWORD
+
 	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
 		log.Fatalf("Failed to read config file: %v", err)
 	}
@@ -55,4 +75,13 @@ func MustLoadConfig() *Config {
 
 }
 
+
+// postgres://user:pass@localhost:5432/dbname?sslmode=disable
+func (db *DatabaseDSN) GetDSN() string {
+	return fmt.Sprintf(
+		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
+		db.User, db.Password,db.Host,db.Port,db.Database,db.SSLMode,
+	)
+
+}
 
