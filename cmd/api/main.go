@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -16,14 +18,11 @@ import (
 	"github.com/shodruzhoshimzoda/tojtech/pkg/logger"
 )
 
-
 func main() {
 
-	
-	cfg := config.MustLoadConfig()		// init configuration
+	cfg := config.MustLoadConfig() // init configuration
 
-
-	logger := logger.SetupLogger(cfg.Env)	// init logger
+	logger := logger.SetupLogger(cfg.Env) // init logger
 
 	logger.Info("Logger initialized", slog.String("env", cfg.Env))
 
@@ -31,10 +30,10 @@ func main() {
 
 	ctx := context.Background()
 
-	db, err  := postgres.ConnectionDB(ctx, cfg.GetDSN())
+	db, err := postgres.ConnectionDB(ctx, cfg.GetDSN())
 
 	if err != nil {
-		logger.Error("unable connection to Database: ", slog.String("err",err.Error()))
+		logger.Error("unable connection to Database: ", slog.String("err", err.Error()))
 		os.Exit(1)
 	}
 
@@ -48,22 +47,26 @@ func main() {
 
 	handlers := handlers.NewProductHandler(service, logger)
 
-
 	router := chi.NewRouter()
 
 	// Подключаем наш новый красивый цветной логер
-	router.Use(middleware.PrettyStructuredLogger())
+	router.Use(middleware.RequestLogger(logger))
 
 	router.Get("/api/product/{id}", handlers.GetProductHandler)
 
-
-	if err := http.ListenAndServe(":8080", router); err != nil {
-		logger.Error("Error starting server", slog.String("err", err.Error()))
-		return
+	// TOOD: Start the HTTP server
+	srv := &http.Server{
+		Addr:         fmt.Sprintf("%s:%d", cfg.HttpServer.Host, cfg.HttpServer.Port),
+		Handler:      router,
+		ReadTimeout:  cfg.HttpServer.Timeout,
+		WriteTimeout: cfg.HttpServer.Timeout,
+		IdleTimeout:  cfg.HttpServer.IdleTimeout,
 	}
 
-
-	// TOOD: Start the HTTP server
-
+	logger.Info("starting server", slog.String("addr", srv.Addr))
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		logger.Error("server error", slog.String("err", err.Error()))
+		os.Exit(1)
+	}
 
 }
