@@ -7,7 +7,9 @@ import (
 	stdLog "log"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 )
@@ -26,41 +28,45 @@ type PrettyHandler struct {
 func (opts PrettyHandlerOptions) NewPrettyHandler(out io.Writer) *PrettyHandler {
 	return &PrettyHandler{
 		opts:    opts,
-		Handler: slog.NewTextHandler(out, opts.SlogOpts), // Используем TextHandler!
+		Handler: slog.NewTextHandler(out, opts.SlogOpts),
 		l:       stdLog.New(out, "", 0),
 	}
 }
 
 func (h *PrettyHandler) Handle(_ context.Context, r slog.Record) error {
-	level := r.Level.String() + ":"
+	levelText := r.Level.String() + ":"
 
+	var level string
 	switch r.Level {
 	case slog.LevelDebug:
-		level = color.MagentaString(level)
+		level = color.MagentaString(levelText)
 	case slog.LevelInfo:
-		level = color.BlueString(level)
+		level = color.BlueString(levelText)
 	case slog.LevelWarn:
-		level = color.YellowString(level)
+		level = color.YellowString(levelText)
 	case slog.LevelError:
-		level = color.RedString(level)
+		level = color.RedString(levelText)
 	}
 
-	// Собираем атрибуты
 	var attrsBuilder strings.Builder
 
-	// Добавляем сохраненные атрибуты хэндлера
 	for _, a := range h.attrs {
-		attrsBuilder.WriteString(fmt.Sprintf("%s=%v ", color.WhiteString(a.Key), a.Value.Any()))
+		attrsBuilder.WriteString(formatAttr(a))
 	}
-
-	// Добавляем атрибуты конкретной записи
 	r.Attrs(func(a slog.Attr) bool {
-		attrsBuilder.WriteString(fmt.Sprintf("%s=%v ", color.WhiteString(a.Key), a.Value.Any()))
+		attrsBuilder.WriteString(formatAttr(a))
 		return true
 	})
 
 	timeStr := r.Time.Format("[15:04:05.000]")
-	msg := color.CyanString(r.Message)
+
+	// сообщение тоже реагирует на уровень - ошибки сразу бросаются в глаза
+	var msg string
+	if r.Level >= slog.LevelError {
+		msg = color.New(color.FgRed, color.Bold).Sprint(r.Message)
+	} else {
+		msg = color.CyanString(r.Message)
+	}
 
 	h.l.Println(
 		timeStr,
@@ -70,6 +76,66 @@ func (h *PrettyHandler) Handle(_ context.Context, r slog.Record) error {
 	)
 
 	return nil
+}
+
+// formatAttr - красит key=value по смыслу конкретного ключа
+func formatAttr(a slog.Attr) string {
+	key := color.WhiteString(a.Key)
+	value := colorizeValue(a)
+	return fmt.Sprintf("%s=%v ", key, value)
+}
+
+func colorizeValue(a slog.Attr) string {
+	val := fmt.Sprintf("%v", a.Value.Any())
+
+	switch a.Key {
+	case "method":
+		return color.New(color.FgCyan, color.Bold).Sprint(val)
+
+	case "status":
+		status, _ := strconv.Atoi(val)
+		return colorForStatus(status).Sprint(val)
+
+	case "err", "error":
+		return color.New(color.FgRed, color.Bold).Sprint(val)
+
+	case "path":
+		return color.BlueString(val)
+
+	case "duration":
+		return colorForDuration(val).Sprint(val)
+
+	default:
+		return val
+	}
+}
+
+func colorForStatus(status int) *color.Color {
+	switch {
+	case status >= 500:
+		return color.New(color.FgRed)
+	case status >= 400:
+		return color.New(color.FgYellow)
+	case status >= 200:
+		return color.New(color.FgGreen)
+	default:
+		return color.New(color.FgWhite)
+	}
+}
+
+func colorForDuration(d string) *color.Color {
+	dur, err := time.ParseDuration(d)
+	if err != nil {
+		return color.New(color.FgWhite)
+	}
+	switch {
+	case dur > 500*time.Millisecond:
+		return color.New(color.FgRed)
+	case dur > 100*time.Millisecond:
+		return color.New(color.FgYellow)
+	default:
+		return color.New(color.FgWhite)
+	}
 }
 
 func (h *PrettyHandler) WithAttrs(attrs []slog.Attr) slog.Handler {

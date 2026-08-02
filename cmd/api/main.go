@@ -52,7 +52,7 @@ func main() {
 	router := chi.NewRouter()
 
 	router.Use(middleware.RequestID)
-	router.Use(mwlogger.New(logger))
+	router.Use(mwlogger.RequestLogger(logger)) // my custom logger
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 	router.Get("/api/product/{id}", handlers.GetProductHandler)
