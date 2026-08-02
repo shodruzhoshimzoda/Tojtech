@@ -17,47 +17,46 @@ import (
 	repo "github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres/product"
 	usecase "github.com/shodruzhoshimzoda/tojtech/internal/usecase/product"
 	"github.com/shodruzhoshimzoda/tojtech/pkg/logger"
-	"github.com/shodruzhoshimzoda/tojtech/pkg/logger/handler/slogpretty"
 )
 
 func main() {
 
 	cfg := config.MustLoadConfig() // init configuration
 
-	logger := logger.SetupLogger(cfg.Env) // init logger
+	log := logger.SetupLogger(cfg.Env) // init logger
 
-	logger.Info("Logger initialized", slog.String("env", cfg.Env))
+	log.Info("Logger initialized", slog.String("env", cfg.Env))
 
-	logger.Debug("DEBUG mode  enabled")
+	log.Debug("DEBUG mode  enabled")
 
 	ctx := context.Background()
 
 	db, err := postgres.ConnectionDB(ctx, cfg.GetDSN())
 
 	if err != nil {
-		logger.Error("unable connection to Database: ", slog.String("err", err.Error()))
+		log.Error("unable connection to Database: ", slog.String("err", err.Error()))
 		os.Exit(1)
 	}
 
 	defer db.Close()
 
-	logger.Info("Connection to database was successfully")
+	log.Info("Connection to database was successfully")
 
-	repo := repo.NewProductRepository(db)
+	rep := repo.NewProductRepository(db)
 
-	service := usecase.NewProductUsecase(repo)
+	service := usecase.NewProductUsecase(rep)
 
-	handlers := handlers.NewProductHandler(service, logger)
+	hand := handlers.NewProductHandler(service, log)
 
 	router := chi.NewRouter()
 
 	router.Use(middleware.RequestID)
-	router.Use(mwlogger.RequestLogger(logger)) // my custom logger
+	router.Use(mwlogger.RequestLogger(log)) // my custom logger
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
-	router.Get("/api/product/{id}", handlers.GetProductHandler)
+	router.Get("/api/product/{id}", hand.GetProductHandler)
 
-	// TOOD: Start the HTTP server
+	// TODO: Start the HTTP server
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.HttpServer.Host, cfg.HttpServer.Port),
 		Handler:      router,
@@ -66,19 +65,20 @@ func main() {
 		IdleTimeout:  cfg.HttpServer.IdleTimeout,
 	}
 
-	logger.Info("starting server", slog.String("addr", srv.Addr))
+	log.Info("starting server", slog.String("addr", srv.Addr))
 	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		logger.Error("server error", slog.String("err", err.Error()))
+		log.Error("server error", slog.String("err", err.Error()))
 		os.Exit(1)
 	}
 
 }
 
-func setupPrettyLogger() *slog.Logger {
-	opts := slogpretty.PrettyHandlerOptions{&slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}}
-	handler := opts.NewPrettyHandler(os.Stdout)
-
-	return slog.New(handler)
-}
+//
+//func setupPrettyLogger() *slog.Logger {
+//	opts := slogpretty.PrettyHandlerOptions{&slog.HandlerOptions{
+//		Level: slog.LevelDebug,
+//	}}
+//	handler := opts.NewPrettyHandler(os.Stdout)
+//
+//	return slog.New(handler)
+//}
