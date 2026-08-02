@@ -56,7 +56,6 @@ func main() {
 	router.Use(middleware.URLFormat)
 	router.Get("/api/product/{id}", hand.GetProductHandler)
 
-	// TODO: Start the HTTP server
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.HttpServer.Host, cfg.HttpServer.Port),
 		Handler:      router,
