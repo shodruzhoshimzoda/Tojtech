@@ -9,13 +9,15 @@ import (
 	"os"
 
 	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 	"github.com/shodruzhoshimzoda/tojtech/internal/config"
 	"github.com/shodruzhoshimzoda/tojtech/internal/delivery/handlers"
-	middleware "github.com/shodruzhoshimzoda/tojtech/internal/delivery/handlers/middlwares"
+	mwlogger "github.com/shodruzhoshimzoda/tojtech/internal/delivery/handlers/middlwares"
 	"github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres"
 	repo "github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres/product"
 	usecase "github.com/shodruzhoshimzoda/tojtech/internal/usecase/product"
 	"github.com/shodruzhoshimzoda/tojtech/pkg/logger"
+	"github.com/shodruzhoshimzoda/tojtech/pkg/logger/handler/slogpretty"
 )
 
 func main() {
@@ -49,9 +51,10 @@ func main() {
 
 	router := chi.NewRouter()
 
-	// Подключаем наш новый красивый цветной логер
-	router.Use(middleware.RequestLogger(logger))
-
+	router.Use(middleware.RequestID)
+	router.Use(mwlogger.New(logger))
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.URLFormat)
 	router.Get("/api/product/{id}", handlers.GetProductHandler)
 
 	// TOOD: Start the HTTP server
@@ -69,4 +72,13 @@ func main() {
 		os.Exit(1)
 	}
 
+}
+
+func setupPrettyLogger() *slog.Logger {
+	opts := slogpretty.PrettyHandlerOptions{&slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}}
+	handler := opts.NewPrettyHandler(os.Stdout)
+
+	return slog.New(handler)
 }
