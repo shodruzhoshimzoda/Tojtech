@@ -24,37 +24,32 @@ func main() {
 	cfg := config.MustLoadConfig() // init configuration
 
 	log := logger.SetupLogger(cfg.Env) // init logger
-
 	log.Info("Logger initialized", slog.String("env", cfg.Env))
-
 	log.Debug("DEBUG mode  enabled")
 
 	ctx := context.Background()
-
 	db, err := postgres.ConnectionDB(ctx, cfg.GetDSN())
 
 	if err != nil {
 		log.Error("unable connection to Database: ", slog.String("err", err.Error()))
 		os.Exit(1)
 	}
-
 	defer db.Close()
 
 	log.Info("Connection to database was successfully")
 
 	rep := repo.NewProductRepository(db)
-
 	service := usecase.NewProductUsecase(rep)
-
 	hand := handlers.NewProductHandler(service, log)
 
 	router := chi.NewRouter()
-
 	router.Use(middleware.RequestID)
 	router.Use(mwlogger.RequestLogger(log)) // my custom logger
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
-	router.Get("/api/product/{id}", hand.GetProductHandler)
+
+	router.Get("/api/v1/products", hand.ListProductsHandler)
+	router.Get("/api/v1/products/{uuid}", hand.GetProductHandler)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.HttpServer.Host, cfg.HttpServer.Port),
