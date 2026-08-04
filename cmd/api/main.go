@@ -8,14 +8,14 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
 	"github.com/shodruzhoshimzoda/tojtech/internal/config"
-	"github.com/shodruzhoshimzoda/tojtech/internal/delivery/handlers"
-	mwlogger "github.com/shodruzhoshimzoda/tojtech/internal/delivery/handlers/middlwares"
+	"github.com/shodruzhoshimzoda/tojtech/internal/delivery/http_server"
+	"github.com/shodruzhoshimzoda/tojtech/internal/delivery/http_server/handlers"
 	"github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres"
-	repo "github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres/product"
-	usecase "github.com/shodruzhoshimzoda/tojtech/internal/usecase/product"
+	repo_category "github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres/category"
+	"github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres/product"
+	usecase_category "github.com/shodruzhoshimzoda/tojtech/internal/usecase/category"
+	"github.com/shodruzhoshimzoda/tojtech/internal/usecase/product"
 	"github.com/shodruzhoshimzoda/tojtech/pkg/logger"
 )
 
@@ -38,18 +38,18 @@ func main() {
 
 	log.Info("Connection to database was successfully")
 
-	rep := repo.NewProductRepository(db)
-	service := usecase.NewProductUsecase(rep)
-	hand := handlers.NewProductHandler(service, log)
+	// for products
+	repProd := repo_product.NewProductRepository(db)
+	serviceProd := usecase_product.NewProductUsecase(repProd)
+	handProd := handlers.NewProductHandler(serviceProd, log)
 
-	router := chi.NewRouter()
-	router.Use(middleware.RequestID)
-	router.Use(mwlogger.RequestLogger(log)) // my custom logger
-	router.Use(middleware.Recoverer)
-	router.Use(middleware.URLFormat)
+	// for repositories
+	repCateg := repo_category.NewCategoryRepository(db)
+	serCateg := usecase_category.NewCategoryUseCase(repCateg)
+	handCateg := handlers.NewCategoryHandler(log, serCateg)
 
-	router.Get("/api/v1/products", hand.ListProductsHandler)
-	router.Get("/api/v1/products/{uuid}", hand.GetProductHandler)
+	// our routes
+	router := http_server.NewRoutes(handProd,handCateg,  log)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.HttpServer.Host, cfg.HttpServer.Port),
