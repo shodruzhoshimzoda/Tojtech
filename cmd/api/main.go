@@ -8,14 +8,14 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
 	"github.com/shodruzhoshimzoda/tojtech/internal/config"
-	"github.com/shodruzhoshimzoda/tojtech/internal/delivery/handlers"
-	mwlogger "github.com/shodruzhoshimzoda/tojtech/internal/delivery/handlers/middlwares"
+	"github.com/shodruzhoshimzoda/tojtech/internal/delivery/http_server"
+	"github.com/shodruzhoshimzoda/tojtech/internal/delivery/http_server/handlers"
 	"github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres"
-	repo "github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres/product"
-	usecase "github.com/shodruzhoshimzoda/tojtech/internal/usecase/product"
+	repo_category "github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres/category"
+	"github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres/product"
+	usecase_category "github.com/shodruzhoshimzoda/tojtech/internal/usecase/category"
+	"github.com/shodruzhoshimzoda/tojtech/internal/usecase/product"
 	"github.com/shodruzhoshimzoda/tojtech/pkg/logger"
 )
 
@@ -24,37 +24,32 @@ func main() {
 	cfg := config.MustLoadConfig() // init configuration
 
 	log := logger.SetupLogger(cfg.Env) // init logger
-
 	log.Info("Logger initialized", slog.String("env", cfg.Env))
-
 	log.Debug("DEBUG mode  enabled")
 
 	ctx := context.Background()
-
 	db, err := postgres.ConnectionDB(ctx, cfg.GetDSN())
 
 	if err != nil {
 		log.Error("unable connection to Database: ", slog.String("err", err.Error()))
 		os.Exit(1)
 	}
-
 	defer db.Close()
 
 	log.Info("Connection to database was successfully")
 
-	rep := repo.NewProductRepository(db)
+	// for products
+	repProd := repo_product.NewProductRepository(db)
+	serviceProd := usecase_product.NewProductUsecase(repProd)
+	handProd := handlers.NewProductHandler(serviceProd, log)
 
-	service := usecase.NewProductUsecase(rep)
+	// for repositories
+	repCateg := repo_category.NewCategoryRepository(db)
+	serCateg := usecase_category.NewCategoryUseCase(repCateg)
+	handCateg := handlers.NewCategoryHandler(log, serCateg)
 
-	hand := handlers.NewProductHandler(service, log)
-
-	router := chi.NewRouter()
-
-	router.Use(middleware.RequestID)
-	router.Use(mwlogger.RequestLogger(log)) // my custom logger
-	router.Use(middleware.Recoverer)
-	router.Use(middleware.URLFormat)
-	router.Get("/api/product/{id}", hand.GetProductHandler)
+	// our routes
+	router := http_server.NewRoutes(handProd,handCateg,  log)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.HttpServer.Host, cfg.HttpServer.Port),

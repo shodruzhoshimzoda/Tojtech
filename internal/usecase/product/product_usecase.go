@@ -1,18 +1,15 @@
-package usecase
+package usecase_product
 
 import (
 	"context"
-	"errors"
 
+	"github.com/google/uuid"
 	domain "github.com/shodruzhoshimzoda/tojtech/internal/domain/product"
 )
 
-var (
-	ErrProductNotFound = errors.New("product not  found")
-)
-
 type ProductRepo interface {
-	GetById(ctx context.Context, id int64) (*domain.Product, error)
+	GetProductByUUID(ctx context.Context, uuid uuid.UUID) (*domain.Product, error)
+	ProductList(ctx context.Context) ([]*domain.Product, error)
 }
 
 // Productusecase struct contain repository wcich means its doesnt matter which DB we use this
@@ -28,14 +25,13 @@ func NewProductUsecase(repo ProductRepo) *ProductUsecase {
 }
 
 // Bussines logic for GetProduct
-func (p *ProductUsecase) GetProduct(ctx context.Context, id int64) (*domain.Product, error) {
+func (p *ProductUsecase) GetProduct(ctx context.Context, id uuid.UUID) (*domain.Product, error) {
 
-	prod, err := p.repo.GetById(ctx, int64(id))
+	return p.repo.GetProductByUUID(ctx, id)
 
-	if err != nil {
-		return nil, err
-	}
+}
 
-	return prod, nil
+func (p *ProductUsecase) ProductList(ctx context.Context) ([]*domain.Product, error) {
 
+	return p.repo.ProductList(ctx)
 }

@@ -1,45 +1,97 @@
-package repo
+package repo_product
 
 import (
 	"context"
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	domain "github.com/shodruzhoshimzoda/tojtech/internal/domain/product"
+	domain_category "github.com/shodruzhoshimzoda/tojtech/internal/domain/category"
+	domain_product "github.com/shodruzhoshimzoda/tojtech/internal/domain/product"
 )
 
 //
 
-type ProductRespository struct {
+type ProductRepository struct {
 	dbPool *pgxpool.Pool
 }
 
-func NewProductRepository(dbPool *pgxpool.Pool) *ProductRespository {
-	return &ProductRespository{
+func NewProductRepository(dbPool *pgxpool.Pool) *ProductRepository {
+	return &ProductRepository{
 		dbPool: dbPool,
 	}
 }
 
-func (p *ProductRespository) GetById(ctx context.Context, id int64) (*domain.Product, error) {
+func (r *ProductRepository) GetProductByUUID(ctx context.Context, id uuid.UUID) (*domain_product.Product, error) {
+	query := `
+		SELECT 
+			p.id, p.uuid, p.name, p.slug, p.description, p.price, p.stock, 
+			p.category_id, p.is_active, p.created_at, p.updated_at,
+			c.id, c.uuid, c.name, c.slug, c.description, c.created_at
+		FROM products p
+		INNER JOIN categories c ON p.category_id = c.id  -- вот JOIN
+		WHERE p.uuid = $1 AND p.is_active = true
+	`
 
-	query := "SELECT id, name, description, price from products where id=$1;"
+	var product domain_product.Product
+	var category domain_category.Category
 
-	var product domain.Product
-
-	if err := p.dbPool.QueryRow(ctx, query, id).Scan(
-		&product.ID,
-		&product.Name,
-		&product.Description,
-		&product.Price,
-	); err != nil {
+	err := r.dbPool.QueryRow(ctx, query, id).Scan(
+		&product.ID, &product.UUID, &product.Name, &product.Slug, &product.Description, &product.Price, &product.Stock,
+		&product.CategoryID, &product.IsActive, &product.CreatedAt, &product.UpdatedAt,
+		&category.ID, &category.UUID, &category.Name, &category.Slug, &category.Description, &category.CreatedAt,
+	)
+	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, domain.ErrProductNotFound
+			return nil, domain_product.ErrProductNotFound
 		}
-
 		return nil, err
 	}
 
-	return &product, nil
+	product.Category = &category // кладем категорию внутрь продукта
 
+	return &product, nil
+}
+
+func (r *ProductRepository) ProductList(ctx context.Context) ([]*domain_product.Product, error) {
+
+	query := "SELECT  uuid, name, slug, description, price, stock, category_id, is_active, created_at, updated_at FROM products"
+
+	rows, err := r.dbPool.Query(ctx, query)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return []*domain_product.Product{}, nil
+		}
+	}
+
+	var p []*domain_product.Product
+
+	for rows.Next() {
+		var product domain_product.Product
+		err := rows.Scan(
+			&product.UUID,
+			&product.Name,
+			&product.Slug,
+			&product.Description,
+			&product.Price,
+			&product.Stock,
+			&product.CategoryID,
+			&product.IsActive,
+			&product.CreatedAt,
+			&product.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		p = append(p, &product)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return p, nil
 }
