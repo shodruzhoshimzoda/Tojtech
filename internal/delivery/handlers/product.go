@@ -4,10 +4,10 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/render"
+	"github.com/google/uuid"
 	domain "github.com/shodruzhoshimzoda/tojtech/internal/domain/product"
 	usecase "github.com/shodruzhoshimzoda/tojtech/internal/usecase/product"
 	"github.com/shodruzhoshimzoda/tojtech/pkg/reqlog"
@@ -29,18 +29,18 @@ func (h *ProductHandler) GetProductHandler(w http.ResponseWriter, r *http.Reques
 
 	const op = "ProductHandler.GetProductHandler"
 
-	id := chi.URLParam(r, "id")
+	uuID := chi.URLParam(r, "uuid")
 
-	idInt, err := strconv.ParseInt(id, 10, 64)
+	id, err := uuid.Parse(uuID)
 
 	if err != nil {
-		reqlog.Warn(r.Context(), "invalid product id", slog.String("op", op))
-		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, map[string]string{"error": "invalid id"})
+		reqlog.Warn(r.Context(), "product not found", slog.String("op", op))
+		render.Status(r, http.StatusNotFound)
+		render.JSON(w, r, map[string]string{"error": "product not found"})
 		return
 	}
 
-	product, err := h.usc.GetProduct(r.Context(), idInt)
+	product, err := h.usc.GetProduct(r.Context(), id)
 	if err != nil {
 
 		if errors.Is(err, domain.ErrProductNotFound) {
@@ -57,6 +57,21 @@ func (h *ProductHandler) GetProductHandler(w http.ResponseWriter, r *http.Reques
 
 	}
 
-	reqlog.Info(r.Context(), "product fetched", slog.String("op", op), slog.String("product_id", id))
-	render.JSON(w, r, product)
+	reqlog.Info(r.Context(), "product fetched", slog.String("op", op), slog.String("product_id", id.String()))
+	render.JSON(w, r, map[string]any{"product": product})
+}
+
+func (h *ProductHandler) ListProductsHandler(w http.ResponseWriter, r *http.Request) {
+	const op = "ProductHandler.ListProductsHandler"
+
+	products, err := h.usc.List(r.Context())
+	if err != nil {
+		reqlog.Error(r.Context(), "failed to list products", err, slog.String("op", op))
+		render.Status(r, http.StatusInternalServerError)
+		render.JSON(w, r, map[string]string{"error": "internal server error"})
+		return
+	}
+
+	render.JSON(w, r, map[string]any{"products": products})
+
 }
