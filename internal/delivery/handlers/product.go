@@ -57,7 +57,6 @@ func (h *ProductHandler) GetProductHandler(w http.ResponseWriter, r *http.Reques
 
 	}
 
-	reqlog.Info(r.Context(), "product fetched", slog.String("op", op), slog.String("product_id", id.String()))
 	render.JSON(w, r, map[string]any{"product": product})
 }
 
