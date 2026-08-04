@@ -1,9 +1,14 @@
 package domain_category
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
+)
+
+var (
+	ErrCategoryNotFound = errors.New("category not found")
 )
 
 type Category struct {
