@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/google/uuid"
 	domain "github.com/shodruzhoshimzoda/tojtech/internal/domain/product"
 )
 
@@ -12,7 +13,8 @@ var (
 )
 
 type ProductRepo interface {
-	GetById(ctx context.Context, id int64) (*domain.Product, error)
+	GetByUUID(ctx context.Context, uuid uuid.UUID) (*domain.Product, error)
+	List(ctx context.Context) ([]domain.Product, error)
 }
 
 // Productusecase struct contain repository wcich means its doesnt matter which DB we use this
@@ -28,9 +30,9 @@ func NewProductUsecase(repo ProductRepo) *ProductUsecase {
 }
 
 // Bussines logic for GetProduct
-func (p *ProductUsecase) GetProduct(ctx context.Context, id int64) (*domain.Product, error) {
+func (p *ProductUsecase) GetProduct(ctx context.Context, id uuid.UUID) (*domain.Product, error) {
 
-	prod, err := p.repo.GetById(ctx, int64(id))
+	prod, err := p.repo.GetByUUID(ctx, id)
 
 	if err != nil {
 		return nil, err
@@ -38,4 +40,13 @@ func (p *ProductUsecase) GetProduct(ctx context.Context, id int64) (*domain.Prod
 
 	return prod, nil
 
+}
+
+func (p *ProductUsecase) List(ctx context.Context) ([]domain.Product, error) {
+
+	products, err := p.repo.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return products, nil
 }
