@@ -8,7 +8,12 @@ import (
 )
 
 var (
-	ErrCategoryNotFound = errors.New("category not found")
+	ErrInvalidCategoryName = errors.New("The length of the product name must be less than 100 characters and greater than 0.")
+	ErrEmptyCategoryName   = errors.New("Product name could no be empty")
+	ErrLongDescription     = errors.New("The product description is too long")
+
+	ErrCategoryAlreadyExists = errors.New("The category already exists")
+	ErrCategoryNotFound      = errors.New("product not  found")
 )
 
 type Category struct {
@@ -18,4 +23,22 @@ type Category struct {
 	Slug        string    `db:"slug" json:"slug"`
 	Description string    `db:"description" json:"description,omitempty"`
 	CreatedAt   time.Time `db:"created_at" json:"created_at"`
+}
+
+func (p *Category) Validate() error {
+
+	if p.Name == "" {
+		return ErrEmptyCategoryName
+	}
+
+	if len(p.Name) > 100 {
+		return ErrInvalidCategoryName
+	}
+
+	if len(p.Description) > 500 {
+		return ErrLongDescription
+	}
+
+	return nil
+
 }
