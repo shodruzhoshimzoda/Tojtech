@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	domain_category "github.com/shodruzhoshimzoda/tojtech/internal/domain/category"
 )
@@ -42,3 +43,27 @@ func (c *CategoryRepository) GetCategoryByUUID(ctx context.Context, uuid uuid.UU
 }
 
 // TODO: Implement other methods for the CategoryRepository as needed, such as CreateCategory, UpdateCategory, DeleteCategory, etc.
+
+func (r *CategoryRepository) CreateCategory(ctx context.Context, c *domain_category.Category) (uuid.UUID, error) {
+	query := `
+	INSERT INTO categories (name, slug, description, created_at)
+	VALUES ($1, $2, $3, $4)
+	RETURNING uuid
+	`
+
+	err := r.dbPool.QueryRow(ctx, query,
+		c.Name,
+		c.Slug,
+		c.Description,
+		c.CreatedAt,
+	).Scan(&c.UUID) // сразу кладем в структуру
+
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation
+			return uuid.Nil, domain_category.ErrCategoryAlreadyExists
+		}
+		return uuid.Nil, err
+	}
+	return c.UUID, nil
+}
