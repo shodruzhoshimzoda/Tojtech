@@ -3,6 +3,7 @@ package repo_category
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -21,7 +22,7 @@ func NewCategoryRepository(dbPool *pgxpool.Pool) *CategoryRepository {
 }
 
 func (c *CategoryRepository) GetCategoryByUUID(ctx context.Context, uuid uuid.UUID) (*domain_category.Category, error) {
-	query := "SELECT uuid, name, slug, description, created_at FROM categories WHERE uuid = $1"
+	query := "SELECT uuid, name, slug, description, created_at, updated_at FROM categories WHERE uuid = $1"
 
 	var category domain_category.Category
 
@@ -31,6 +32,7 @@ func (c *CategoryRepository) GetCategoryByUUID(ctx context.Context, uuid uuid.UU
 		&category.Slug,
 		&category.Description,
 		&category.CreatedAt,
+		&category.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -66,4 +68,43 @@ func (r *CategoryRepository) CreateCategory(ctx context.Context, c *domain_categ
 		return uuid.Nil, err
 	}
 	return c.UUID, nil
+}
+
+func (r *CategoryRepository) UpdateCategory(ctx context.Context, uuId uuid.UUID, cat *domain_category.Category) (*domain_category.Category, error) {
+	query := `
+	UPDATE categories
+		SET name = $1, description = $2,slug = $3
+		WHERE uuid = $4
+		RETURNING uuid, name, description, slug, created_at, updated_at
+	`
+	var result domain_category.Category
+	err := r.dbPool.QueryRow(ctx, query,
+		cat.Name,
+		cat.Description,
+		cat.Slug,
+		uuId,
+	).Scan(
+		&result.UUID,
+		&result.Name,
+		&result.Description,
+		&result.Slug,
+		&result.CreatedAt,
+		&result.UpdatedAt,
+	)
+
+	if err != nil {
+		// 1. Проверяем, существует ли обновляемая категория
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain_category.ErrCategoryNotFound
+		}
+
+		// 2. Проверяем, не нарушает ли новое имя/slug уникальность (SQLSTATE 23505)
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, domain_category.ErrCategoryAlreadyExists
+		}
+
+		return nil, fmt.Errorf("update category: %w", err)
+	}
+	return &result, nil
 }

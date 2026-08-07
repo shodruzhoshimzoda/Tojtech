@@ -23,6 +23,7 @@ type Category struct {
 	Slug        string    `db:"slug" json:"slug"`
 	Description string    `db:"description" json:"description,omitempty"`
 	CreatedAt   time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
 }
 
 func (p *Category) Validate() error {
