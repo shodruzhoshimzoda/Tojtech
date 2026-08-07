@@ -38,6 +38,7 @@ func (c *CategoryRepository) GetCategoryByUUID(ctx context.Context, uuid uuid.UU
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain_category.ErrCategoryNotFound
 		}
+		return nil, err
 	}
 
 	return &category, nil

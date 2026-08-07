@@ -64,8 +64,9 @@ func (r *ProductRepository) ProductList(ctx context.Context) ([]*domain_product.
 		if errors.Is(err, pgx.ErrNoRows) {
 			return []*domain_product.Product{}, nil
 		}
+		return nil, err
 	}
-
+	defer rows.Close()
 	var p []*domain_product.Product
 
 	for rows.Next() {
