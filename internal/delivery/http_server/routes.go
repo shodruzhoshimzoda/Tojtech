@@ -26,6 +26,6 @@ func NewRoutes(
 	router.Get("/api/v1/categories/{uuid}", categoryHandler.GetCategoryHandler)
 	router.Post("/api/v1/categories", categoryHandler.CreateCategoryHandler)
 	router.Patch("/api/v1/categories/{uuid}", categoryHandler.UpdateCategoryHandler)
-
+	router.Delete("/api/v1/categories/{uuid}", categoryHandler.DeleteCategoryHandler)
 	return router
 }
