@@ -63,5 +63,5 @@ func (h *ProductHandler) ListProductsHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	httphelpers.RespondJSON(w, r, http.StatusOK, products)
+	httphelpers.RespondJSON(w, r, http.StatusOK, map[string]any{"products": products})
 }
