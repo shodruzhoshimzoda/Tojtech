@@ -56,7 +56,7 @@ func (c *CategoryHandler) GetCategoryHandler(w http.ResponseWriter, r *http.Requ
 	id, err := uuid.Parse(uuID)
 	if err != nil {
 
-		httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "could not parse the uuid", "category not found")
+		httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "could not parse the uuid", "category not found")
 		return
 	}
 
@@ -64,7 +64,7 @@ func (c *CategoryHandler) GetCategoryHandler(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		if errors.Is(err, domain_category.ErrCategoryNotFound) {
 
-			httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "category not found", "product not found")
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "category not found", "category not found")
 			return
 		}
 		httphelpers.RespondError(r.Context(), w, r, http.StatusInternalServerError, "failed to get category", err, "internal server error", op)
@@ -76,6 +76,27 @@ func (c *CategoryHandler) GetCategoryHandler(w http.ResponseWriter, r *http.Requ
 	render.JSON(w, r, map[string]any{"category": catDTO})
 
 }
+
+func (c *CategoryHandler) GetCategoriesHandler(w http.ResponseWriter, r *http.Request) {
+	op := "categories.GetCategoriesHandler"
+
+	categories, err := c.ucs.GetCategories(r.Context())
+	if err != nil {
+		httphelpers.RespondError(r.Context(), w, r, http.StatusInternalServerError, "error getting categories", err, "internal server error", op)
+		return
+	}
+
+	var categoriesDTO []CategoryResponse
+
+	for _, cat := range categories {
+		catDTO := NewCategoryResponse(cat)
+		categoriesDTO = append(categoriesDTO, catDTO)
+	}
+
+	httphelpers.RespondJSON(w, r, http.StatusOK, map[string]any{"categories": categoriesDTO})
+
+}
+
 func (c *CategoryHandler) CreateCategoryHandler(w http.ResponseWriter, r *http.Request) {
 	const op = "CategoryHandler.CreateCategoryHandler"
 
@@ -100,7 +121,6 @@ func (c *CategoryHandler) CreateCategoryHandler(w http.ResponseWriter, r *http.R
 		httphelpers.RespondError(r.Context(), w, r, http.StatusInternalServerError, "failed to create category", err, "internal server error", op)
 		return
 	}
-
 	catDTO := NewCategoryResponse(&req)
 	httphelpers.RespondJSON(w, r, http.StatusCreated, map[string]any{"category": catDTO})
 }
@@ -111,7 +131,7 @@ func (c *CategoryHandler) UpdateCategoryHandler(w http.ResponseWriter, r *http.R
 	uuID := chi.URLParam(r, "uuid")
 	id, err := uuid.Parse(uuID)
 	if err != nil {
-		httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "could not parse the uuid", "product not found")
+		httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "could not parse the uuid", "product not found")
 		return
 	}
 
@@ -152,7 +172,7 @@ func (c *CategoryHandler) DeleteCategoryHandler(w http.ResponseWriter, r *http.R
 
 	id, err := uuid.Parse(chi.URLParam(r, "uuid"))
 	if err != nil {
-		httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "could not parse the uuid", "product not found")
+		httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "could not parse the uuid", "product not found")
 		return
 	}
 
