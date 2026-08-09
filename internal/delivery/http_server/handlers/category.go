@@ -61,7 +61,6 @@ func (c *CategoryHandler) GetCategoryHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	category, err := c.ucs.GetCategory(r.Context(), id)
-	catDTO := NewCategoryResponse(category)
 	if err != nil {
 		if errors.Is(err, domain_category.ErrCategoryNotFound) {
 
@@ -72,6 +71,7 @@ func (c *CategoryHandler) GetCategoryHandler(w http.ResponseWriter, r *http.Requ
 		return
 
 	}
+	catDTO := NewCategoryResponse(category)
 
 	render.JSON(w, r, map[string]any{"category": catDTO})
 
