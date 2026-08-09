@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -58,7 +59,7 @@ func (r *CategoryRepository) CreateCategory(ctx context.Context, c *domain_categ
 		c.Name,
 		c.Slug,
 		c.Description,
-		c.CreatedAt,
+		time.Now(),
 	).Scan(&c.UUID) // сразу кладем в структуру
 
 	if err != nil {
@@ -74,8 +75,8 @@ func (r *CategoryRepository) CreateCategory(ctx context.Context, c *domain_categ
 func (r *CategoryRepository) UpdateCategory(ctx context.Context, uuId uuid.UUID, cat *domain_category.Category) (*domain_category.Category, error) {
 	query := `
 	UPDATE categories
-		SET name = $1, description = $2,slug = $3
-		WHERE uuid = $4
+		SET name = $1, description = $2,slug = $3, updated_at = $4
+		WHERE uuid = $5
 		RETURNING uuid, name, description, slug, created_at, updated_at
 	`
 	var result domain_category.Category
@@ -83,6 +84,7 @@ func (r *CategoryRepository) UpdateCategory(ctx context.Context, uuId uuid.UUID,
 		cat.Name,
 		cat.Description,
 		cat.Slug,
+		cat.UpdatedAt,
 		uuId,
 	).Scan(
 		&result.UUID,
@@ -108,4 +110,21 @@ func (r *CategoryRepository) UpdateCategory(ctx context.Context, uuId uuid.UUID,
 		return nil, fmt.Errorf("update category: %w", err)
 	}
 	return &result, nil
+}
+
+func (r *CategoryRepository) DeleteCategory(ctx context.Context, uuid uuid.UUID) error {
+	query := "DELETE FROM categories WHERE uuid = $1"
+
+	_, err := r.dbPool.Exec(ctx, query, uuid)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain_category.ErrCategoryNotFound
+		}
+
+		return fmt.Errorf("delete category: %w", err)
+
+	}
+
+	return nil
 }
