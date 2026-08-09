@@ -131,7 +131,7 @@ func (r *CategoryRepository) DeleteCategory(ctx context.Context, id uuid.UUID) e
 func (r *CategoryRepository) GetCategories(ctx context.Context) ([]*domain_category.Category, error) {
 
 	query := "SELECT uuid, name, slug, description, created_at, updated_at FROM categories"
-	var categories []*domain_category.Category
+	var categories = make([]*domain_category.Category, 0)
 	rows, err := r.dbPool.Query(ctx, query)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

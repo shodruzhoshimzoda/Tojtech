@@ -86,7 +86,7 @@ func (c *CategoryHandler) GetCategoriesHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var categoriesDTO []CategoryResponse
+	var categoriesDTO = make([]CategoryResponse, 0)
 
 	for _, cat := range categories {
 		catDTO := NewCategoryResponse(cat)
