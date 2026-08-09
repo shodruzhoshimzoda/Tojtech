@@ -11,6 +11,7 @@ type CategoryRepo interface {
 	GetCategoryByUUID(ctx context.Context, uuid uuid.UUID) (*domain_category.Category, error)
 	CreateCategory(ctx context.Context, category *domain_category.Category) (uuid.UUID, error)
 	UpdateCategory(ctx context.Context, id uuid.UUID, category *domain_category.Category) (cat *domain_category.Category, e error)
+	DeleteCategory(ctx context.Context, id uuid.UUID) (e error)
 }
 
 type CategoryUseCase struct {
@@ -41,4 +42,8 @@ func (u *CategoryUseCase) UpdateCategory(ctx context.Context, id uuid.UUID, cate
 	}
 
 	return newCategory, nil
+}
+
+func (u *CategoryUseCase) DeleteCategory(ctx context.Context, id uuid.UUID) error {
+	return u.categoryRepo.DeleteCategory(ctx, id)
 }
