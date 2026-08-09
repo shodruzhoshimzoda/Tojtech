@@ -52,7 +52,7 @@ func (r *CategoryRepository) CreateCategory(ctx context.Context, c *domain_categ
 	query := `
 	INSERT INTO categories (name, slug, description, created_at)
 	VALUES ($1, $2, $3, $4)
-	RETURNING uuid
+	RETURNING uuid, created_at, updated_at
 	`
 
 	err := r.dbPool.QueryRow(ctx, query,
@@ -60,7 +60,7 @@ func (r *CategoryRepository) CreateCategory(ctx context.Context, c *domain_categ
 		c.Slug,
 		c.Description,
 		time.Now(),
-	).Scan(&c.UUID) // сразу кладем в структуру
+	).Scan(&c.UUID, &c.CreatedAt, &c.UpdatedAt) // сразу кладем в структуру
 
 	if err != nil {
 		var pgErr *pgconn.PgError
