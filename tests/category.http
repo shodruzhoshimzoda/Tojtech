@@ -1,0 +1,211 @@
+### tests/category.http
+### Prerequisites: server running on localhost:8080, DB migrated and reachable.
+### Run tests top to bottom - some depend on state created by earlier ones (marked below).
+
+@baseUrl = http://localhost:8080/api/v1
+
+# =========================================================
+# GetCategoriesHandler - GET /categories
+# =========================================================
+
+### 1. List all categories - happy path
+GET {{baseUrl}}/categories
+
+# Expected: 200 OK, body: {"categories": [...]}  (or [] if DB is empty)
+
+
+# =========================================================
+# CreateCategoryHandler - POST /categories
+# =========================================================
+
+### 2. Create category - happy path
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "Electronics",
+  "slug": "electronics",
+  "description": "Gadgets and consumer electronics"
+}
+
+# Expected: 201 Created, body: {"category": {"uuid": "...", "name": "Electronics", ...}}
+# Save the returned uuid - it's used in tests 8, 9, 12 below.
+
+
+### 3. Create category - malformed JSON body
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{ "name": "Broken", "slug": }
+
+# Expected: 400 Bad Request, body: {"error": "invalid request body"}
+
+
+### 4. Create category - empty name (validation error)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "",
+  "slug": "empty-name-test",
+  "description": "test"
+}
+
+# Expected: 400 Bad Request, body: {"error": "category is invalid", "error_description": "..."}
+
+
+### 5. Create category - name too long (>100 chars, validation error)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "slug": "too-long-name-test",
+  "description": "test"
+}
+
+# Expected: 400 Bad Request, body: {"error": "category is invalid", "error_description": "..."}
+
+
+### 6. Create category - duplicate name/slug (must run AFTER test 2)
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "Electronics",
+  "slug": "electronics",
+  "description": "Duplicate attempt"
+}
+
+# Expected: 409 Conflict, body: {"error": "category already exists"}
+
+
+# =========================================================
+# GetCategoryHandler - GET /categories/{uuid}
+# =========================================================
+
+### 7. Get category by UUID - happy path (replace with a real UUID from test 2 response)
+GET {{baseUrl}}/categories/11111111-1111-1111-1111-111111111111
+
+# Expected: 200 OK, body: {"category": {...}}
+
+
+### 8. Get category - invalid UUID format
+GET {{baseUrl}}/categories/not-a-valid-uuid
+
+# Expected: 400 Bad Request, body: {"error": "category not found"}
+# NOTE: consider changing this error message to "invalid category id" for clarity - see comment above.
+
+
+### 9. Get category - valid UUID, does not exist
+GET {{baseUrl}}/categories/00000000-0000-0000-0000-000000000000
+
+# Expected: 404 Not Found, body: {"error": "category not found"}
+
+
+# =========================================================
+# UpdateCategoryHandler - PATCH /categories/{uuid}
+# =========================================================
+
+### 10. Update category - happy path (replace with a real UUID from test 2 response)
+PATCH {{baseUrl}}/categories/11111111-1111-1111-1111-111111111111
+Content-Type: application/json
+
+{
+  "name": "Electronics & Gadgets",
+  "slug": "electronics-gadgets",
+  "description": "Updated description"
+}
+
+# Expected: 200 OK, body: {"category": {"name": "Electronics & Gadgets", ...}}
+
+
+### 11. Update category - invalid UUID format
+PATCH {{baseUrl}}/categories/not-a-valid-uuid
+Content-Type: application/json
+
+{
+  "name": "Doesn't matter",
+  "slug": "doesnt-matter",
+  "description": "test"
+}
+
+# Expected (after bugfix above): 400 Bad Request, body: {"error": "invalid category id"}
+
+
+### 12. Update category - empty body / validation error
+PATCH {{baseUrl}}/categories/11111111-1111-1111-1111-111111111111
+Content-Type: application/json
+
+{
+  "name": "",
+  "slug": "",
+  "description": ""
+}
+
+# Expected: 400 Bad Request, body: {"error": "category is invalid", "error_description": "..."}
+
+
+### 13. Update category - UUID does not exist
+PATCH {{baseUrl}}/categories/00000000-0000-0000-0000-000000000000
+Content-Type: application/json
+
+{
+  "name": "Ghost Category",
+  "slug": "ghost-category",
+  "description": "test"
+}
+
+# Expected: 404 Not Found, body: {"error": "category not found"}
+
+
+### 14. Update category - name conflicts with another existing category
+# First create a second category to conflict with:
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "Books",
+  "slug": "books",
+  "description": "test"
+}
+
+### 14b. Now try renaming category from test 2/10 to "Books" (replace UUID accordingly)
+PATCH {{baseUrl}}/categories/11111111-1111-1111-1111-111111111111
+Content-Type: application/json
+
+{
+  "name": "Books",
+  "slug": "books",
+  "description": "conflict attempt"
+}
+
+### Expected: 409 Conflict, body: {"error": "duplicate name"}
+
+
+# =========================================================
+# DeleteCategoryHandler - DELETE /categories/{uuid}
+# =========================================================
+
+### 15. Delete category - invalid UUID format
+DELETE {{baseUrl}}/categories/not-a-valid-uuid
+
+# Expected (after bugfix above): 400 Bad Request, body: {"error": "invalid category id"}
+
+
+### 16. Delete category - UUID does not exist
+DELETE {{baseUrl}}/categories/00000000-0000-0000-0000-000000000000
+
+# Expected: 404 Not Found, body: {"error": "category not found"}
+
+
+### 17. Delete category - happy path (replace with a real UUID, e.g. the "Books" category from test 14)
+DELETE {{baseUrl}}/categories/22222222-2222-2222-2222-222222222222
+
+# Expected: 204 No Content, empty body
+
+
+### 18. Verify deletion - getting the same UUID should now 404 (or still 200 if it's a soft delete without filtering)
+GET {{baseUrl}}/categories/22222222-2222-2222-2222-222222222222
+
+# Expected: depends on whether DeleteCategory is soft or hard delete - see note below.
