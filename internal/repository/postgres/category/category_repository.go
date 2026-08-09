@@ -112,19 +112,61 @@ func (r *CategoryRepository) UpdateCategory(ctx context.Context, uuId uuid.UUID,
 	return &result, nil
 }
 
-func (r *CategoryRepository) DeleteCategory(ctx context.Context, uuid uuid.UUID) error {
+func (r *CategoryRepository) DeleteCategory(ctx context.Context, id uuid.UUID) error {
 	query := "DELETE FROM categories WHERE uuid = $1"
 
-	_, err := r.dbPool.Exec(ctx, query, uuid)
-
+	cmdTag, err := r.dbPool.Exec(ctx, query, id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return domain_category.ErrCategoryNotFound
-		}
-
 		return fmt.Errorf("delete category: %w", err)
+	}
 
+	if cmdTag.RowsAffected() == 0 {
+		return domain_category.ErrCategoryNotFound
 	}
 
 	return nil
+}
+
+// GetCategories - Get All categories from database
+func (r *CategoryRepository) GetCategories(ctx context.Context) ([]*domain_category.Category, error) {
+
+	query := "SELECT uuid, name, slug, description, created_at, updated_at FROM categories"
+	var categories []*domain_category.Category
+	rows, err := r.dbPool.Query(ctx, query)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return categories, nil
+
+		}
+
+		return nil, fmt.Errorf("get categories: %w", err)
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var category domain_category.Category
+		err := rows.Scan(
+			&category.UUID,
+			&category.Name,
+			&category.Slug,
+			&category.Description,
+			&category.CreatedAt,
+			&category.UpdatedAt)
+
+		if err != nil {
+			return nil, fmt.Errorf("get categories: %w", err)
+
+		}
+
+		categories = append(categories, &category)
+
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("get categories: %w", err)
+	}
+
+	return categories, nil
+
 }
