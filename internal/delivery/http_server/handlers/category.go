@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/render"
@@ -13,6 +14,27 @@ import (
 	usecase "github.com/shodruzhoshimzoda/tojtech/internal/usecase/category"
 	"github.com/shodruzhoshimzoda/tojtech/pkg/httphelpers"
 )
+
+type CategoryResponse struct {
+	UUID        uuid.UUID `json:"uuid"`
+	Name        string    `json:"name"`
+	Slug        string    `json:"slug"`
+	Description string    `json:"description"`
+	CreatedAt   string    `json:"created_at"`
+	UpdatedAt   string    `json:"updated_at"`
+}
+
+// NewCategoryResponse - DTO
+func NewCategoryResponse(c *domain_category.Category) CategoryResponse {
+	return CategoryResponse{
+		UUID:        c.UUID,
+		Name:        c.Name,
+		Slug:        c.Slug,
+		Description: c.Description,
+		CreatedAt:   c.CreatedAt.Format(time.DateTime),
+		UpdatedAt:   c.UpdatedAt.Format(time.DateTime),
+	}
+}
 
 type CategoryHandler struct {
 	logger *slog.Logger
@@ -34,11 +56,11 @@ func (c *CategoryHandler) GetCategoryHandler(w http.ResponseWriter, r *http.Requ
 	id, err := uuid.Parse(uuID)
 	if err != nil {
 
-		httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "could not parse the uuid", "product not found")
+		httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "could not parse the uuid", "category not found")
 		return
 	}
 
-	categories, err := c.ucs.GetCategory(r.Context(), id)
+	category, err := c.ucs.GetCategory(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, domain_category.ErrCategoryNotFound) {
 
@@ -49,8 +71,9 @@ func (c *CategoryHandler) GetCategoryHandler(w http.ResponseWriter, r *http.Requ
 		return
 
 	}
+	catDTO := NewCategoryResponse(category)
 
-	render.JSON(w, r, map[string]any{"categories": categories})
+	render.JSON(w, r, map[string]any{"category": catDTO})
 
 }
 func (c *CategoryHandler) CreateCategoryHandler(w http.ResponseWriter, r *http.Request) {
@@ -68,7 +91,7 @@ func (c *CategoryHandler) CreateCategoryHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	uuID, err := c.ucs.CreateCategory(r.Context(), &req)
+	_, err := c.ucs.CreateCategory(r.Context(), &req)
 	if err != nil {
 		if errors.Is(err, domain_category.ErrCategoryAlreadyExists) {
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusConflict, "failed to create category", "category already exists")
@@ -78,8 +101,8 @@ func (c *CategoryHandler) CreateCategoryHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	req.UUID = uuID
-	httphelpers.RespondJSON(w, r, http.StatusCreated, map[string]any{"category": req})
+	catDTO := NewCategoryResponse(&req)
+	httphelpers.RespondJSON(w, r, http.StatusCreated, map[string]any{"category": catDTO})
 }
 
 func (c *CategoryHandler) UpdateCategoryHandler(w http.ResponseWriter, r *http.Request) {
@@ -118,7 +141,31 @@ func (c *CategoryHandler) UpdateCategoryHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	httphelpers.RespondJSON(w, r, http.StatusOK, map[string]any{"category": newCategory})
-	return
+	catDTO := NewCategoryResponse(newCategory)
+
+	httphelpers.RespondJSON(w, r, http.StatusOK, map[string]any{"category": catDTO})
+
+}
+
+func (c *CategoryHandler) DeleteCategoryHandler(w http.ResponseWriter, r *http.Request) {
+	const op = "CategoryHandler.DeleteCategoryHandler"
+
+	id, err := uuid.Parse(chi.URLParam(r, "uuid"))
+	if err != nil {
+		httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "could not parse the uuid", "product not found")
+		return
+	}
+
+	if err := c.ucs.DeleteCategory(r.Context(), id); err != nil {
+		if errors.Is(err, domain_category.ErrCategoryNotFound) {
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "category not found", "category not found")
+			return
+		}
+
+		httphelpers.RespondError(r.Context(), w, r, http.StatusInternalServerError, "failed to delete category", err, "internal server error", op)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 
 }
