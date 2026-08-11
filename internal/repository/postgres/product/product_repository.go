@@ -3,9 +3,11 @@ package repo_product
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	domain_category "github.com/shodruzhoshimzoda/tojtech/internal/domain/category"
 	domain_product "github.com/shodruzhoshimzoda/tojtech/internal/domain/product"
@@ -95,4 +97,64 @@ func (r *ProductRepository) ProductList(ctx context.Context) ([]*domain_product.
 	}
 
 	return p, nil
+}
+
+func (r *ProductRepository) CreateProduct(ctx context.Context, p *domain_product.Product) error {
+	if p.Category == nil {
+		return domain_category.ErrCategoryNotFound
+	}
+
+	tx, err := r.dbPool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+
+	defer tx.Rollback(ctx)
+
+	queryProduct := `
+       INSERT INTO products (name, slug, description, price, stock, category_id)
+       SELECT $1, $2, $3, $4, $5, c.id
+       FROM categories c
+       WHERE c.uuid = $6
+       RETURNING id, uuid, created_at, updated_at
+    `
+	err = tx.QueryRow(ctx, queryProduct,
+		p.Name, p.Slug, p.Description, p.Price, p.Stock, p.Category.UUID,
+	).Scan(&p.ID, &p.UUID, &p.CreatedAt, &p.UpdatedAt)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain_category.ErrCategoryNotFound
+		}
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return domain_product.ErrProductAlreadyExists
+		}
+		return fmt.Errorf("create product: %w", err)
+	}
+
+	// 3. Вставляем картинки через tx
+	if len(p.Images) > 0 {
+		queryImage := `
+          INSERT INTO product_images (product_id, image_url, is_main)
+          VALUES ($1, $2, $3)
+          RETURNING id, uuid, image_url, is_main
+       `
+		for i := range p.Images {
+			img := &p.Images[i]
+			img.ProductID = p.ID
+
+			err := tx.QueryRow(ctx, queryImage, img.ProductID, img.ImageURL, img.IsMain).
+				Scan(&img.ID, &img.UUID, &img.ImageURL, &img.IsMain)
+			if err != nil {
+				return fmt.Errorf("create product image: %w", err) // defer tx.Rollback отменит и создание товара!
+			}
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return nil
 }
