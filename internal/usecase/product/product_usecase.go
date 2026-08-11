@@ -4,15 +4,16 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	domain "github.com/shodruzhoshimzoda/tojtech/internal/domain/product"
+	domain_product "github.com/shodruzhoshimzoda/tojtech/internal/domain/product"
 )
 
 type ProductRepo interface {
-	GetProductByUUID(ctx context.Context, uuid uuid.UUID) (*domain.Product, error)
-	ProductList(ctx context.Context) ([]*domain.Product, error)
+	GetProductByUUID(ctx context.Context, uuid uuid.UUID) (*domain_product.Product, error)
+	ProductList(ctx context.Context) ([]*domain_product.Product, error)
+	CreateProduct(ctx context.Context, product *domain_product.Product) error
 }
 
-// Productusecase struct contain repository wcich means its doesnt matter which DB we use this
+// ProductUsecase struct contain repository which means its doesn't matter which DB we use this
 // Db must have this methods
 type ProductUsecase struct {
 	repo ProductRepo
@@ -24,14 +25,18 @@ func NewProductUsecase(repo ProductRepo) *ProductUsecase {
 	}
 }
 
-// Bussines logic for GetProduct
-func (p *ProductUsecase) GetProduct(ctx context.Context, id uuid.UUID) (*domain.Product, error) {
+// GetProduct Business logic for
+func (p *ProductUsecase) GetProduct(ctx context.Context, id uuid.UUID) (*domain_product.Product, error) {
 
 	return p.repo.GetProductByUUID(ctx, id)
 
 }
 
-func (p *ProductUsecase) ProductList(ctx context.Context) ([]*domain.Product, error) {
+func (p *ProductUsecase) ProductList(ctx context.Context) ([]*domain_product.Product, error) {
 
 	return p.repo.ProductList(ctx)
+}
+
+func (p *ProductUsecase) CreateProduct(ctx context.Context, prod *domain_product.Product) error {
+	return p.repo.CreateProduct(ctx, prod)
 }

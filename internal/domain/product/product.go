@@ -3,18 +3,22 @@ package domain_product
 import (
 	"errors"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	domain_category "github.com/shodruzhoshimzoda/tojtech/internal/domain/category"
 )
 
 var (
-	ErrInvalidProductName  = errors.New("The length of the product name must be less than 100 characters and greater than 0.")
-	ErrEmptyProductName    = errors.New("Product name could no be empty")
-	ErrInvalidProductPrice = errors.New("the product price is incorrect")
-	ErrLongDescription     = errors.New("The product description is too long")
+	ErrEmptyProductName    = errors.New("product name cannot be empty")
+	ErrInvalidProductName  = errors.New("product name must be less than 100 characters")
+	ErrEmptyProductSlug    = errors.New("product slug cannot be empty")
+	ErrInvalidProductPrice = errors.New("product price must be greater than zero")
+	ErrNegativeStock       = errors.New("product stock cannot be negative")
+	ErrLongDescription     = errors.New("product description must be less than 500 characters")
 
-	ErrProductNotFound = errors.New("product not  found")
+	ErrProductNotFound      = errors.New("product not found")
+	ErrProductAlreadyExists = errors.New("product with this slug already exists")
 )
 
 type Product struct {
@@ -37,7 +41,7 @@ type ProductImage struct {
 	ID        int64     `db:"id" json:"-"`
 	UUID      uuid.UUID `db:"uuid" json:"uuid"`
 	ProductID int64     `db:"product_id" json:"-"`
-	ImageURL  string    `db:"image_url" json:"url"`
+	ImageURL  string    `db:"image_url" json:"image_url"`
 	IsMain    bool      `db:"is_main" json:"is_main"`
 }
 
@@ -49,21 +53,25 @@ type ProductImage struct {
 
 // }
 
-// validate - this method will check each fields for our product
+// Validate - this method will check each fields for our product
 func (p *Product) Validate() error {
 
 	if p.Name == "" {
 		return ErrEmptyProductName
 	}
 
-	if len(p.Name) > 100 {
+	if utf8.RuneCountInString(p.Name) > 100 {
 		return ErrInvalidProductName
 	}
-
 	if p.Price < 0 {
 		return ErrInvalidProductPrice
 	}
-
+	if p.Slug == "" {
+		return ErrEmptyProductSlug
+	}
+	if p.Stock < 0 {
+		return ErrNegativeStock
+	}
 	if len(p.Description) > 500 {
 		return ErrLongDescription
 	}

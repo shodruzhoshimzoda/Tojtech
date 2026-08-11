@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -8,7 +9,8 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
-	domain "github.com/shodruzhoshimzoda/tojtech/internal/domain/product"
+	domain_category "github.com/shodruzhoshimzoda/tojtech/internal/domain/category"
+	domain_product "github.com/shodruzhoshimzoda/tojtech/internal/domain/product"
 	usecase "github.com/shodruzhoshimzoda/tojtech/internal/usecase/product"
 	"github.com/shodruzhoshimzoda/tojtech/pkg/httphelpers"
 )
@@ -18,6 +20,59 @@ type ProductHandler struct {
 	log *slog.Logger
 }
 
+type ProductImageDTO struct {
+	UUID     uuid.UUID `json:"uuid"`
+	ImageURL string    `json:"image_url"`
+	IsMain   bool      `json:"is_main"`
+}
+
+type CategoryDTO struct {
+	UUID uuid.UUID `json:"uuid"`
+}
+
+type ProductDTO struct {
+	UUID        uuid.UUID         `json:"uuid"`
+	Name        string            `json:"name"`
+	Slug        string            `json:"slug"`
+	Description string            `json:"description"`
+	Price       float64           `json:"price"`
+	Stock       int               `json:"stock"`
+	Category    *CategoryDTO      `json:"category,omitempty"`
+	CreatedAt   string            `json:"created_at"`
+	UpdatedAt   string            `json:"updated_at"`
+	Images      []ProductImageDTO `json:"images"`
+}
+
+func NewProductDTO(p *domain_product.Product) ProductDTO {
+	imagesDTO := make([]ProductImageDTO, 0, len(p.Images))
+	for _, img := range p.Images {
+		imagesDTO = append(imagesDTO, ProductImageDTO{
+			UUID:     img.UUID,
+			ImageURL: img.ImageURL,
+			IsMain:   img.IsMain,
+		})
+	}
+
+	var categoryDTO *CategoryDTO
+	if p.Category != nil {
+		categoryDTO = &CategoryDTO{
+			UUID: p.Category.UUID,
+		}
+	}
+
+	return ProductDTO{
+		UUID:        p.UUID,
+		Name:        p.Name,
+		Slug:        p.Slug,
+		Description: p.Description,
+		Price:       p.Price,
+		Stock:       p.Stock,
+		Category:    categoryDTO,
+		CreatedAt:   p.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:   p.UpdatedAt.Format("2006-01-02 15:04:05"),
+		Images:      imagesDTO,
+	}
+}
 func NewProductHandler(usc *usecase.ProductUsecase, log *slog.Logger) *ProductHandler {
 	return &ProductHandler{
 		usc: usc,
@@ -34,14 +89,14 @@ func (h *ProductHandler) GetProductHandler(w http.ResponseWriter, r *http.Reques
 	id, err := uuid.Parse(uuID)
 
 	if err != nil {
-		httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "invalid uuid", "product not found")
+		httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "invalid uuid", "product not found")
 		return
 	}
 
 	product, err := h.usc.GetProduct(r.Context(), id)
 	if err != nil {
 
-		if errors.Is(err, domain.ErrProductNotFound) {
+		if errors.Is(err, domain_product.ErrProductNotFound) {
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "product not found", "product not found")
 			return
 		}
@@ -50,8 +105,8 @@ func (h *ProductHandler) GetProductHandler(w http.ResponseWriter, r *http.Reques
 		return
 
 	}
-
-	render.JSON(w, r, map[string]any{"product": product})
+	prodDTO := NewProductDTO(product)
+	render.JSON(w, r, map[string]any{"product": prodDTO})
 }
 
 func (h *ProductHandler) ListProductsHandler(w http.ResponseWriter, r *http.Request) {
@@ -62,6 +117,44 @@ func (h *ProductHandler) ListProductsHandler(w http.ResponseWriter, r *http.Requ
 		httphelpers.RespondError(r.Context(), w, r, http.StatusInternalServerError, "failed to list products", err, "internal server error", op)
 		return
 	}
+	var productsDTO = make([]ProductDTO, 0)
+	for _, p := range products {
+		prodDTO := NewProductDTO(p)
+		productsDTO = append(productsDTO, prodDTO)
+	}
 
-	httphelpers.RespondJSON(w, r, http.StatusOK, map[string]any{"products": products})
+	httphelpers.RespondJSON(w, r, http.StatusOK, map[string]any{"products": productsDTO})
+}
+
+func (h *ProductHandler) CreateProductHandler(w http.ResponseWriter, r *http.Request) {
+	const op = "ProductHandler.CreateProductHandler"
+
+	var prod domain_product.Product
+	if err := json.NewDecoder(r.Body).Decode(&prod); err != nil {
+		httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to create product", "invalid request body")
+		return
+	}
+
+	if err := prod.Validate(); err != nil {
+		httphelpers.RespondWarnWithDesc(r.Context(), w, r, http.StatusBadRequest, "failed to validate product", "product is invalid", err.Error())
+		return
+	}
+
+	err := h.usc.CreateProduct(r.Context(), &prod)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain_category.ErrCategoryNotFound):
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to create product", "specified category does not exist")
+			return
+		case errors.Is(err, domain_product.ErrProductAlreadyExists):
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusConflict, "failed to create product", "product with this slug already exists")
+			return
+		default:
+			httphelpers.RespondError(r.Context(), w, r, http.StatusInternalServerError, "failed to create product", err, "internal server error", op)
+			return
+		}
+	}
+
+	prodDTO := NewProductDTO(&prod)
+	httphelpers.RespondJSON(w, r, http.StatusCreated, map[string]any{"product": prodDTO})
 }
