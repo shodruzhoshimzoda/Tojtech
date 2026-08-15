@@ -1,87 +1,91 @@
 package config
 
 import (
+	"flag"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
-	"github.com/joho/godotenv"
 )
 
-
-
 type Config struct {
-	Env        	string 	`yaml:"env" env-default:"local"`
-	HttpServer			`yaml:"http-server"`
-	DatabaseDSN					`yaml:"db-conn"`
+	Env         string `yaml:"env" env-default:"local"`
+	HttpServer  `yaml:"http-server"`
+	DatabaseDSN `yaml:"db-conn"`
 }
 
 type HttpServer struct {
-	Host        string 			`yaml:"host" env-default:"localhost"`
-	Port        int    			`yaml:"port" env-default:"8080"`
-	Timeout     time.Duration   `yaml:"timeout" env-default:"4s"`
-	IdleTimeout time.Duration   `yaml:"idle-timeout" env-default:"60s"`
+	Host        string        `yaml:"host" env-default:"localhost"`
+	Port        int           `yaml:"port" env-default:"8080"`
+	Timeout     time.Duration `yaml:"timeout" env-default:"4s"`
+	IdleTimeout time.Duration `yaml:"idle-timeout" env-default:"60s"`
 }
-
 
 type DatabaseDSN struct {
-	Host 		string			`yaml:"host" env-default:"localhost"`	
-	Port 		int				`yaml:"port" env-default:"5432"`
-	User		string			`yaml:"user" env-default:"postgres"`
-	Database 	string			`yaml:"database" env-default:"shop"`
-	SSLMode		string			`yaml:"sslmode" env-default:"disable"`
-	Password 	string			`yaml:"-"`
+	Host     string `yaml:"host" env-default:"localhost"`
+	Port     int    `yaml:"port" env-default:"5432"`
+	User     string `yaml:"user" env-default:"postgres"`
+	Database string `yaml:"database" env-default:"shop"`
+	SSLMode  string `yaml:"sslmode" env-default:"disable"`
+	Password string `yaml:"-" env-default:"DB_PASSWORD"`
 }
-
-
-
-
 
 // function for reading config from yaml file and env variables
 
 func MustLoadConfig() *Config {
 
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("No .env file exists")
-	}
-	
 	// get environment variables
-	configPath := os.Getenv("CONFIG_PATH")
-	DB_PASSWORD    :=  os.Getenv("DB_PASSWORD")
 
+	var configFilePath string
+	var DBPassword string
 
+	flag.StringVar(&configFilePath, "config-file", "./config/local.yaml", "path to config file")
+	flag.StringVar(&DBPassword, "db-password", "", "database password")
+	flag.Parse()
 
-	if configPath == "" {
+	if configFilePath == "" { //
+		configFilePath = os.Getenv("CONFIG_PATH") // get config path from environment variable
+	}
+
+	if configFilePath == "" {
 		log.Fatal("CONFIG_PATH environment variable is not set")
 	}
 
 	// check if the config file exists
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		log.Fatalf("Config file does not exist: %s", configPath)
+	if _, err := os.Stat(configFilePath); os.IsNotExist(err) {
+		log.Fatalf("Config file does not exist: %s", configFilePath)
 	}
-
 
 	var cfg Config
 
-	cfg.Password = DB_PASSWORD
-
-	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
+	if err := cleanenv.ReadConfig(configFilePath, &cfg); err != nil {
 		log.Fatalf("Failed to read config file: %v", err)
+	}
+
+	if DBPassword != "" {
+		cfg.Password = DBPassword
+	}
+
+	if cfg.Password == "" {
+		log.Fatal("DB Password is not set. Use -db-password flag or DB_PASSWORD env")
 	}
 
 	return &cfg
 
 }
 
-
-// postgres://user:pass@localhost:5432/dbname?sslmode=disable
 func (db *DatabaseDSN) GetDSN() string {
-	return fmt.Sprintf(
-		"postgres://%s:%s@%s:%d/%s?sslmode=%s",
-		db.User, db.Password,db.Host,db.Port,db.Database,db.SSLMode,
-	)
-
+	u := &url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(db.User, db.Password), // coding spec symbols
+		Host:   fmt.Sprintf("%s:%d", db.Host, db.Port),
+		Path:   db.Database,
+	}
+	q := u.Query()
+	q.Set("sslmode", db.SSLMode)
+	u.RawQuery = q.Encode()
+	return u.String()
 }
-
