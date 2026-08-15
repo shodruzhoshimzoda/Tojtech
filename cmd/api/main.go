@@ -39,17 +39,17 @@ func main() {
 	log.Info("Connection to database was successfully")
 
 	// for products
-	repProd := repo_product.NewProductRepository(db)
-	serviceProd := usecase_product.NewProductUsecase(repProd)
-	handProd := handlers.NewProductHandler(serviceProd, log)
+	productRepo := product_repository.NewProductRepository(db)
+	productUseCase := product_usecase.NewProductUsecase(productRepo)
+	handProd := handlers.NewProductHandler(productUseCase, log)
 
 	// for repositories
-	repCateg := repo_category.NewCategoryRepository(db)
-	serCateg := usecase_category.NewCategoryUseCase(repCateg)
-	handCateg := handlers.NewCategoryHandler(log, serCateg)
+	categoryRepo := repo_category.NewCategoryRepository(db)
+	categoryUseCase := usecase_category.NewCategoryUseCase(categoryRepo)
+	categoryHandler := handlers.NewCategoryHandler(categoryUseCase, log)
 
 	// our routes
-	router := http_server.NewRoutes(handProd,handCateg,  log)
+	router := http_server.NewRoutes(handProd, categoryHandler, log)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.HttpServer.Host, cfg.HttpServer.Port),
