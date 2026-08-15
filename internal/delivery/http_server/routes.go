@@ -33,6 +33,7 @@ func NewRoutes(
 
 	router.Route("/api/v1", func(r chi.Router) {
 
+		// for categories
 		r.Route("/categories", func(r chi.Router) {
 			r.Get("/", categoryHandler.GetCategoriesHandler)
 			r.Post("/", categoryHandler.CreateCategoryHandler)
@@ -45,6 +46,7 @@ func NewRoutes(
 			})
 		})
 
+		// for products
 		r.Route("/products", func(r chi.Router) {
 			r.Get("/", productHandler.ListProductsHandler)
 			r.Post("/", productHandler.CreateProductHandler)
