@@ -2,6 +2,7 @@ package domain_product
 
 import (
 	"errors"
+	"net/url"
 	"time"
 	"unicode/utf8"
 
@@ -43,6 +44,25 @@ type ProductImage struct {
 	ProductID int64     `db:"product_id" json:"-"`
 	ImageURL  string    `db:"image_url" json:"image_url"`
 	IsMain    bool      `db:"is_main" json:"is_main"`
+}
+
+// internal/domain/product/product.go
+var (
+	ErrImageNotFound   = errors.New("image not found")
+	ErrEmptyImageURL   = errors.New("image url cannot be empty")
+	ErrInvalidImageURL = errors.New("image url is not a valid url")
+	ErrTooManyImages   = errors.New("product cannot have more than 10 images")
+)
+
+func ValidateImageURL(rawURL string) error {
+	if rawURL == "" {
+		return ErrEmptyImageURL
+	}
+	parsed, err := url.ParseRequestURI(rawURL)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return ErrInvalidImageURL
+	}
+	return nil
 }
 
 // type ProductDTO struct {

@@ -20,12 +20,6 @@ type ProductHandler struct {
 	log *slog.Logger
 }
 
-type ProductImageDTO struct {
-	UUID     uuid.UUID `json:"uuid"`
-	ImageURL string    `json:"image_url"`
-	IsMain   bool      `json:"is_main"`
-}
-
 type CategoryDTO struct {
 	UUID uuid.UUID `json:"uuid"`
 }
@@ -40,7 +34,7 @@ type ProductDTO struct {
 	Category    *CategoryDTO      `json:"category,omitempty"`
 	CreatedAt   string            `json:"created_at"`
 	UpdatedAt   string            `json:"updated_at"`
-	Images      []ProductImageDTO `json:"images"`
+	Images      []ProductImageDTO `json:"images,omitempty"`
 }
 
 func NewProductDTO(p *domain_product.Product) ProductDTO {
@@ -157,4 +151,69 @@ func (h *ProductHandler) CreateProductHandler(w http.ResponseWriter, r *http.Req
 
 	prodDTO := NewProductDTO(&prod)
 	httphelpers.RespondJSON(w, r, http.StatusCreated, map[string]any{"product": prodDTO})
+}
+
+func (h *ProductHandler) DeleteProductHandler(w http.ResponseWriter, r *http.Request) {
+	const op = "ProductHandler.DeleteProductHandler"
+
+	id, err := uuid.Parse(chi.URLParam(r, "uuid"))
+	if err != nil {
+		httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "invalid uuid", "product not found")
+		return
+	}
+
+	err = h.usc.DeleteProduct(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, domain_product.ErrProductNotFound) {
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "product not found", "product not found")
+			return
+		}
+
+		httphelpers.RespondError(r.Context(), w, r, http.StatusInternalServerError, "failed to delete product", err, "internal server error", op)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+func (h *ProductHandler) UpdateProductHandler(w http.ResponseWriter, r *http.Request) {
+	const op = "ProductHandler.UpdateProductHandler"
+
+	id, err := uuid.Parse(chi.URLParam(r, "uuid"))
+	if err != nil {
+		httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "invalid uuid", "invalid product id")
+		return
+	}
+
+	var req domain_product.Product
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to parse request body", "invalid request body")
+		return
+	}
+
+	if err := req.Validate(); err != nil {
+		httphelpers.RespondWarnWithDesc(r.Context(), w, r, http.StatusBadRequest, "failed to validate product", "product is invalid", err.Error())
+		return
+	}
+
+	req.UUID = id // UUID из URL всегда главнее того, что могло прийти в теле запроса
+
+	if err := h.usc.UpdateProduct(r.Context(), &req); err != nil {
+		switch {
+		case errors.Is(err, domain_product.ErrProductNotFound):
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "product not found", "product not found")
+
+		case errors.Is(err, domain_category.ErrCategoryNotFound):
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to update product", "specified category does not exist")
+
+		case errors.Is(err, domain_product.ErrProductAlreadyExists):
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusConflict, "failed to update product", "product with this slug already exists")
+
+		default:
+			httphelpers.RespondError(r.Context(), w, r, http.StatusInternalServerError, "failed to update product", err, "internal server error", op)
+		}
+		return
+	}
+
+	prodDTO := NewProductDTO(&req)
+	httphelpers.RespondJSON(w, r, http.StatusOK, map[string]any{"product": prodDTO})
 }

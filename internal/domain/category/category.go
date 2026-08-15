@@ -8,11 +8,11 @@ import (
 )
 
 var (
-	ErrInvalidCategoryName = errors.New("The length of the product name must be less than 100 characters and greater than 0.")
-	ErrEmptyCategoryName   = errors.New("Product name could no be empty")
-	ErrLongDescription     = errors.New("The product description is too long")
+	ErrInvalidCategoryName = errors.New("the length of the product name must be less than 100 characters and greater than 0")
+	ErrEmptyCategoryName   = errors.New("product name could no be empty")
+	ErrLongDescription     = errors.New("the product description is too long")
 
-	ErrCategoryAlreadyExists = errors.New("The category already exists")
+	ErrCategoryAlreadyExists = errors.New("the category already exists")
 	ErrCategoryNotFound      = errors.New("product not  found")
 )
 

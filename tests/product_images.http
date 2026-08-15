@@ -1,0 +1,45 @@
+### tests/product_images.http
+
+@baseUrl = http://localhost:8080/api/v1
+
+### 1. Add image - happy path (replace product uuid with a real one)
+POST {{baseUrl}}/products/93248b1f-e699-42ac-9b15-39a6a1ac7c5c/images
+Content-Type: application/json
+
+{
+  "image_url": "https://cdn.example.com/iphone-15-side.jpg",
+  "is_main": false
+}
+### Expected: 201, {"image": {"uuid": "...", "image_url": "...", "is_main": false}}
+
+
+### 2. Invalid URL
+POST {{baseUrl}}/products/93248b1f-e699-42ac-9b15-39a6a1ac7c5c/images
+Content-Type: application/json
+
+{ "image_url": "not-a-url", "is_main": false }
+### Expected: 400, {"error": "image url is not a valid url"}
+
+
+### 3. Non-existent product
+POST {{baseUrl}}/products/00000000-0000-0000-0000-000000000000/images
+Content-Type: application/json
+
+{ "image_url": "https://cdn.example.com/test.jpg", "is_main": false }
+### Expected: 404, {"error": "product not found"}
+
+
+### 4. Delete image - happy path (replace both uuids with real ones from test 1)
+DELETE {{baseUrl}}/products/93248b1f-e699-42ac-9b15-39a6a1ac7c5c/images/6d47bfb2-9c1e-4d3b-bcca-c1fa20bf6cbd
+# Expected: 204
+
+
+### 5. Delete non-existent image
+DELETE {{baseUrl}}/products/93248b1f-e699-42ac-9b15-39a6a1ac7c5c/images/00000000-0000-0000-0000-000000000000
+# Expected: 404, {"error": "image not found"}
+
+
+### 6. Delete image belonging to another product (cross-tenant protection)
+DELETE {{baseUrl}}/products/93248b1f-e699-42ac-9b15-39a6a1ac7c5c/images/PASTE_IMAGE_FROM_PRODUCT_A_UUID
+# Expected: 404 (image exists, but does not belong to product B)
+###

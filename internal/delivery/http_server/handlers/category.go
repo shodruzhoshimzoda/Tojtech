@@ -41,7 +41,7 @@ type CategoryHandler struct {
 	ucs    *usecase.CategoryUseCase
 }
 
-func NewCategoryHandler(logger *slog.Logger, ucs *usecase.CategoryUseCase) *CategoryHandler {
+func NewCategoryHandler(ucs *usecase.CategoryUseCase, logger *slog.Logger) *CategoryHandler {
 	return &CategoryHandler{
 		logger: logger,
 		ucs:    ucs,
