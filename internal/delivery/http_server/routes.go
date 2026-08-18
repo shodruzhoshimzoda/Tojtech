@@ -35,27 +35,27 @@ func NewRoutes(
 
 		// for categories
 		r.Route("/categories", func(r chi.Router) {
-			r.Get("/", categoryHandler.GetCategoriesHandler)
-			r.Post("/", categoryHandler.CreateCategoryHandler)
+			r.Get("/", categoryHandler.GetCategories)
+			r.Post("/", categoryHandler.CreateCategory)
 
 			r.Route("/{uuid}", func(r chi.Router) {
-				r.Get("/", categoryHandler.GetCategoryHandler)
-				r.Patch("/", categoryHandler.UpdateCategoryHandler)
-				r.Put("/", categoryHandler.UpdateCategoryHandler)
-				r.Delete("/", categoryHandler.DeleteCategoryHandler)
+				r.Get("/", categoryHandler.GetCategory)
+				r.Patch("/", categoryHandler.UpdateCategory)
+				r.Delete("/", categoryHandler.DeleteCategory)
 			})
 		})
 
 		// for products
 		r.Route("/products", func(r chi.Router) {
-			r.Get("/", productHandler.ListProductsHandler)
-			r.Post("/", productHandler.CreateProductHandler)
+			r.Get("/", productHandler.GetProducts)
+			r.Post("/", productHandler.CreateProduct)
 
 			r.Route("/{uuid}", func(r chi.Router) {
-				r.Get("/", productHandler.GetProductHandler)
-				r.Patch("/", productHandler.UpdateProductHandler)
-				r.Put("/", productHandler.UpdateProductHandler)
-				r.Delete("/", productHandler.DeleteProductHandler)
+				r.Get("/", productHandler.GetProduct)
+				r.Patch("/", productHandler.UpdateProduct)
+				r.Delete("/", productHandler.DeleteProduct)
+
+				// for products image
 				r.Post("/images", productHandler.AddProductImageHandler)
 				r.Delete("/images/{image_uuid}", productHandler.DeleteProductImageHandler)
 			})
@@ -64,4 +64,7 @@ func NewRoutes(
 	})
 
 	return router
+}
+
+type Handlers struct {
 }
