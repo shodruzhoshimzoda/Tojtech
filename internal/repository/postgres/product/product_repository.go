@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	domain_category "github.com/shodruzhoshimzoda/tojtech/internal/domain/category"
-	domain_product "github.com/shodruzhoshimzoda/tojtech/internal/domain/product"
+	category_domain "github.com/shodruzhoshimzoda/tojtech/internal/domain/category"
+	product_domain "github.com/shodruzhoshimzoda/tojtech/internal/domain/product"
 )
 
 //
@@ -24,7 +24,7 @@ func NewProductRepository(dbPool *pgxpool.Pool) *ProductRepository {
 		dbPool: dbPool,
 	}
 }
-func (r *ProductRepository) GetProductByUUID(ctx context.Context, id uuid.UUID) (*domain_product.Product, error) {
+func (r *ProductRepository) GetProduct(ctx context.Context, id uuid.UUID) (*product_domain.Product, error) {
 	query := `
        SELECT 
           p.id, p.uuid, p.name, p.slug, p.description, p.price, p.stock, 
@@ -35,8 +35,8 @@ func (r *ProductRepository) GetProductByUUID(ctx context.Context, id uuid.UUID) 
        WHERE p.uuid = $1 AND p.is_active = true
     `
 
-	var product domain_product.Product
-	var category domain_category.Category
+	var product product_domain.Product
+	var category category_domain.Category
 
 	err := r.dbPool.QueryRow(ctx, query, id).Scan(
 		&product.ID, &product.UUID, &product.Name, &product.Slug, &product.Description, &product.Price, &product.Stock,
@@ -45,7 +45,7 @@ func (r *ProductRepository) GetProductByUUID(ctx context.Context, id uuid.UUID) 
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, domain_product.ErrProductNotFound
+			return nil, product_domain.ErrProductNotFound
 		}
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (r *ProductRepository) GetProductByUUID(ctx context.Context, id uuid.UUID) 
 	defer rows.Close()
 
 	for rows.Next() {
-		var img domain_product.ProductImage
+		var img product_domain.ProductImage
 		if err := rows.Scan(&img.UUID, &img.ImageURL, &img.IsMain); err != nil {
 			return nil, fmt.Errorf("scan product image: %w", err)
 		}
@@ -79,7 +79,7 @@ func (r *ProductRepository) GetProductByUUID(ctx context.Context, id uuid.UUID) 
 	return &product, nil
 }
 
-func (r *ProductRepository) ProductList(ctx context.Context) ([]*domain_product.Product, error) {
+func (r *ProductRepository) GetProducts(ctx context.Context) ([]*product_domain.Product, error) {
 
 	query := "SELECT  uuid, name, slug, description, price, stock, category_id, is_active, created_at, updated_at FROM products"
 
@@ -87,15 +87,15 @@ func (r *ProductRepository) ProductList(ctx context.Context) ([]*domain_product.
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return []*domain_product.Product{}, nil
+			return []*product_domain.Product{}, nil
 		}
 		return nil, err
 	}
 	defer rows.Close()
-	var p []*domain_product.Product
+	var p []*product_domain.Product
 
 	for rows.Next() {
-		var product domain_product.Product
+		var product product_domain.Product
 		err := rows.Scan(
 			&product.UUID,
 			&product.Name,
@@ -122,9 +122,9 @@ func (r *ProductRepository) ProductList(ctx context.Context) ([]*domain_product.
 	return p, nil
 }
 
-func (r *ProductRepository) CreateProduct(ctx context.Context, p *domain_product.Product) error {
+func (r *ProductRepository) CreateProduct(ctx context.Context, p *product_domain.Product) error {
 	if p.Category == nil {
-		return domain_category.ErrCategoryNotFound
+		return category_domain.ErrCategoryNotFound
 	}
 
 	tx, err := r.dbPool.Begin(ctx)
@@ -147,11 +147,11 @@ func (r *ProductRepository) CreateProduct(ctx context.Context, p *domain_product
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain_category.ErrCategoryNotFound
+			return category_domain.ErrCategoryNotFound
 		}
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return domain_product.ErrProductAlreadyExists
+			return product_domain.ErrProductAlreadyExists
 		}
 		return fmt.Errorf("create product: %w", err)
 	}
@@ -194,16 +194,16 @@ func (r ProductRepository) DeleteProduct(ctx context.Context, productID uuid.UUI
 	}
 
 	if cmdTag.RowsAffected() == 0 {
-		return domain_product.ErrProductNotFound
+		return product_domain.ErrProductNotFound
 	}
 	return nil
 
 }
 
 // UpdateProduct updates a product in the database based on its UUID.
-func (r *ProductRepository) UpdateProduct(ctx context.Context, p *domain_product.Product) error {
+func (r *ProductRepository) UpdateProduct(ctx context.Context, p *product_domain.Product) error {
 	if p.Category == nil {
-		return domain_category.ErrCategoryNotFound
+		return category_domain.ErrCategoryNotFound
 	}
 
 	tx, err := r.dbPool.Begin(ctx)
@@ -235,12 +235,12 @@ func (r *ProductRepository) UpdateProduct(ctx context.Context, p *domain_product
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return domain_product.ErrProductNotFound
+			return product_domain.ErrProductNotFound
 		}
 
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return domain_product.ErrProductAlreadyExists
+			return product_domain.ErrProductAlreadyExists
 		}
 
 		return fmt.Errorf("update product: %w", err)
@@ -274,11 +274,9 @@ func (r *ProductRepository) UpdateProduct(ctx context.Context, p *domain_product
 	return nil
 }
 
-// internal/repository/postgres/product/product_repository.go
-
 // AddProductImage - добавляет одну картинку к существующему товару.
 // productUUID резолвится в внутренний id прямо в SQL, как и в CreateProduct.
-func (r *ProductRepository) AddProductImage(ctx context.Context, productUUID uuid.UUID, imageURL string, isMain bool) (*domain_product.ProductImage, error) {
+func (r *ProductRepository) AddProductImage(ctx context.Context, productUUID uuid.UUID, imageURL string, isMain bool) (*product_domain.ProductImage, error) {
 	query := `
 		INSERT INTO product_images (product_id, image_url, is_main)
 		SELECT p.id, $1, $2
@@ -287,13 +285,13 @@ func (r *ProductRepository) AddProductImage(ctx context.Context, productUUID uui
 		RETURNING id, uuid, image_url, is_main
 	`
 
-	var img domain_product.ProductImage
+	var img product_domain.ProductImage
 	err := r.dbPool.QueryRow(ctx, query, imageURL, isMain, productUUID).
 		Scan(&img.ID, &img.UUID, &img.ImageURL, &img.IsMain)
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, domain_product.ErrProductNotFound
+			return nil, product_domain.ErrProductNotFound
 		}
 		return nil, fmt.Errorf("add product image: %w", err)
 	}
@@ -314,7 +312,7 @@ func (r *ProductRepository) DeleteProductImage(ctx context.Context, productUUID,
 		return fmt.Errorf("delete product image: %w", err)
 	}
 	if cmdTag.RowsAffected() == 0 {
-		return domain_product.ErrImageNotFound
+		return product_domain.ErrImageNotFound
 	}
 	return nil
 }

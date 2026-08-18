@@ -41,7 +41,7 @@ func main() {
 	// for products
 	productRepo := product_repository.NewProductRepository(db)
 	productUseCase := product_usecase.NewProductUsecase(productRepo)
-	handProd := handlers.NewProductHandler(productUseCase, log)
+	productHandler := handlers.NewProductHandler(productUseCase, log)
 
 	// for repositories
 	categoryRepo := repo_category.NewCategoryRepository(db)
@@ -49,7 +49,7 @@ func main() {
 	categoryHandler := handlers.NewCategoryHandler(categoryUseCase, log)
 
 	// our routes
-	router := http_server.NewRoutes(handProd, categoryHandler, log)
+	router := http_server.NewRoutes(productHandler, categoryHandler, log)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.HttpServer.Host, cfg.HttpServer.Port),
@@ -66,13 +66,3 @@ func main() {
 	}
 
 }
-
-//
-//func setupPrettyLogger() *slog.Logger {
-//	opts := slogpretty.PrettyHandlerOptions{&slog.HandlerOptions{
-//		Level: slog.LevelDebug,
-//	}}
-//	handler := opts.NewPrettyHandler(os.Stdout)
-//
-//	return slog.New(handler)
-//}

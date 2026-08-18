@@ -78,14 +78,14 @@ func MustLoadConfig() *Config {
 }
 
 func (db *DatabaseDSN) GetDSN() string {
-	u := &url.URL{
+	dbDSN := &url.URL{
 		Scheme: "postgres",
 		User:   url.UserPassword(db.User, db.Password), // coding spec symbols
 		Host:   fmt.Sprintf("%s:%d", db.Host, db.Port),
 		Path:   db.Database,
 	}
-	q := u.Query()
-	q.Set("sslmode", db.SSLMode)
-	u.RawQuery = q.Encode()
-	return u.String()
+	query := dbDSN.Query()
+	query.Set("sslmode", db.SSLMode)
+	dbDSN.RawQuery = query.Encode()
+	return dbDSN.String()
 }

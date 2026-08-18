@@ -22,7 +22,7 @@ func NewCategoryRepository(dbPool *pgxpool.Pool) *CategoryRepository {
 
 }
 
-func (c *CategoryRepository) GetCategoryByUUID(ctx context.Context, uuid uuid.UUID) (*domain_category.Category, error) {
+func (c *CategoryRepository) GetCategory(ctx context.Context, uuid uuid.UUID) (*domain_category.Category, error) {
 	query := "SELECT uuid, name, slug, description, created_at, updated_at FROM categories WHERE uuid = $1"
 
 	var category domain_category.Category
@@ -45,8 +45,6 @@ func (c *CategoryRepository) GetCategoryByUUID(ctx context.Context, uuid uuid.UU
 	return &category, nil
 
 }
-
-// TODO: Implement other methods for the CategoryRepository as needed, such as CreateCategory, UpdateCategory, DeleteCategory, etc.
 
 func (r *CategoryRepository) CreateCategory(ctx context.Context, c *domain_category.Category) (uuid.UUID, error) {
 	query := `

@@ -74,7 +74,7 @@ func NewProductHandler(usc *usecase.ProductUsecase, log *slog.Logger) *ProductHa
 	}
 }
 
-func (h *ProductHandler) GetProductHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 
 	const op = "ProductHandler.GetProductHandler"
 
@@ -103,7 +103,7 @@ func (h *ProductHandler) GetProductHandler(w http.ResponseWriter, r *http.Reques
 	render.JSON(w, r, map[string]any{"product": prodDTO})
 }
 
-func (h *ProductHandler) ListProductsHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProductHandler) GetProducts(w http.ResponseWriter, r *http.Request) {
 	const op = "ProductHandler.ListProductsHandler"
 
 	products, err := h.usc.ProductList(r.Context())
@@ -120,7 +120,7 @@ func (h *ProductHandler) ListProductsHandler(w http.ResponseWriter, r *http.Requ
 	httphelpers.RespondJSON(w, r, http.StatusOK, map[string]any{"products": productsDTO})
 }
 
-func (h *ProductHandler) CreateProductHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	const op = "ProductHandler.CreateProductHandler"
 
 	var prod domain_product.Product
@@ -153,7 +153,7 @@ func (h *ProductHandler) CreateProductHandler(w http.ResponseWriter, r *http.Req
 	httphelpers.RespondJSON(w, r, http.StatusCreated, map[string]any{"product": prodDTO})
 }
 
-func (h *ProductHandler) DeleteProductHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProductHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	const op = "ProductHandler.DeleteProductHandler"
 
 	id, err := uuid.Parse(chi.URLParam(r, "uuid"))
@@ -175,7 +175,7 @@ func (h *ProductHandler) DeleteProductHandler(w http.ResponseWriter, r *http.Req
 
 	w.WriteHeader(http.StatusNoContent)
 }
-func (h *ProductHandler) UpdateProductHandler(w http.ResponseWriter, r *http.Request) {
+func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	const op = "ProductHandler.UpdateProductHandler"
 
 	id, err := uuid.Parse(chi.URLParam(r, "uuid"))
