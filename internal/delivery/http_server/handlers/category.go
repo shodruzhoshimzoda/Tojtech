@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
-	domain_category "github.com/shodruzhoshimzoda/tojtech/internal/domain/category"
+	category_domain "github.com/shodruzhoshimzoda/tojtech/internal/domain/category"
 	usecase "github.com/shodruzhoshimzoda/tojtech/internal/usecase/category"
 	"github.com/shodruzhoshimzoda/tojtech/pkg/httphelpers"
 )
@@ -25,7 +25,7 @@ type CategoryResponse struct {
 }
 
 // NewCategoryResponse - DTO
-func NewCategoryResponse(c *domain_category.Category) CategoryResponse {
+func NewCategoryResponse(c *category_domain.Category) CategoryResponse {
 	return CategoryResponse{
 		UUID:        c.UUID,
 		Name:        c.Name,
@@ -48,7 +48,7 @@ func NewCategoryHandler(ucs *usecase.CategoryUseCase, logger *slog.Logger) *Cate
 	}
 }
 
-func (c *CategoryHandler) GetCategoryHandler(w http.ResponseWriter, r *http.Request) {
+func (c *CategoryHandler) GetCategory(w http.ResponseWriter, r *http.Request) {
 
 	const op = "CategoryHandler.GetCategoryHandler"
 	uuID := chi.URLParam(r, "uuid")
@@ -62,7 +62,7 @@ func (c *CategoryHandler) GetCategoryHandler(w http.ResponseWriter, r *http.Requ
 
 	category, err := c.ucs.GetCategory(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, domain_category.ErrCategoryNotFound) {
+		if errors.Is(err, category_domain.ErrCategoryNotFound) {
 
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "category not found", "category not found")
 			return
@@ -77,7 +77,7 @@ func (c *CategoryHandler) GetCategoryHandler(w http.ResponseWriter, r *http.Requ
 
 }
 
-func (c *CategoryHandler) GetCategoriesHandler(w http.ResponseWriter, r *http.Request) {
+func (c *CategoryHandler) GetCategories(w http.ResponseWriter, r *http.Request) {
 	op := "categories.GetCategoriesHandler"
 
 	categories, err := c.ucs.GetCategories(r.Context())
@@ -97,10 +97,10 @@ func (c *CategoryHandler) GetCategoriesHandler(w http.ResponseWriter, r *http.Re
 
 }
 
-func (c *CategoryHandler) CreateCategoryHandler(w http.ResponseWriter, r *http.Request) {
+func (c *CategoryHandler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 	const op = "CategoryHandler.CreateCategoryHandler"
 
-	var req domain_category.Category
+	var req category_domain.Category
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to create category", "invalid request body")
@@ -114,7 +114,7 @@ func (c *CategoryHandler) CreateCategoryHandler(w http.ResponseWriter, r *http.R
 
 	_, err := c.ucs.CreateCategory(r.Context(), &req)
 	if err != nil {
-		if errors.Is(err, domain_category.ErrCategoryAlreadyExists) {
+		if errors.Is(err, category_domain.ErrCategoryAlreadyExists) {
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusConflict, "failed to create category", "category already exists")
 			return
 		}
@@ -125,7 +125,7 @@ func (c *CategoryHandler) CreateCategoryHandler(w http.ResponseWriter, r *http.R
 	httphelpers.RespondJSON(w, r, http.StatusCreated, map[string]any{"category": catDTO})
 }
 
-func (c *CategoryHandler) UpdateCategoryHandler(w http.ResponseWriter, r *http.Request) {
+func (c *CategoryHandler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 	const op = "CategoryHandler.UpdateCategoryHandler"
 
 	uuID := chi.URLParam(r, "uuid")
@@ -135,7 +135,7 @@ func (c *CategoryHandler) UpdateCategoryHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	var req domain_category.Category
+	var req category_domain.Category
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to parse request body", "invalid request body")
 		return
@@ -148,11 +148,11 @@ func (c *CategoryHandler) UpdateCategoryHandler(w http.ResponseWriter, r *http.R
 
 	newCategory, err := c.ucs.UpdateCategory(r.Context(), id, &req)
 	if err != nil {
-		if errors.Is(err, domain_category.ErrCategoryNotFound) {
+		if errors.Is(err, category_domain.ErrCategoryNotFound) {
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "category not found", "category not found")
 			return
 		}
-		if errors.Is(err, domain_category.ErrCategoryAlreadyExists) {
+		if errors.Is(err, category_domain.ErrCategoryAlreadyExists) {
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusConflict, "category with this name already exists", "duplicate name")
 			return
 		}
@@ -167,7 +167,7 @@ func (c *CategoryHandler) UpdateCategoryHandler(w http.ResponseWriter, r *http.R
 
 }
 
-func (c *CategoryHandler) DeleteCategoryHandler(w http.ResponseWriter, r *http.Request) {
+func (c *CategoryHandler) DeleteCategory(w http.ResponseWriter, r *http.Request) {
 	const op = "CategoryHandler.DeleteCategoryHandler"
 
 	id, err := uuid.Parse(chi.URLParam(r, "uuid"))
@@ -177,7 +177,7 @@ func (c *CategoryHandler) DeleteCategoryHandler(w http.ResponseWriter, r *http.R
 	}
 
 	if err := c.ucs.DeleteCategory(r.Context(), id); err != nil {
-		if errors.Is(err, domain_category.ErrCategoryNotFound) {
+		if errors.Is(err, category_domain.ErrCategoryNotFound) {
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "category not found", "category not found")
 			return
 		}
