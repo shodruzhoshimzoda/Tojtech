@@ -8,6 +8,6 @@ http-server:
 db-conn:
   host: "localhost"
   port: 5432
-  user: sabrrise
+  user: shodruz
   database: myshop
   sslmode: disable
