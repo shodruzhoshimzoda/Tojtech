@@ -42,5 +42,11 @@ make migrate-up
 
 You can run server with two methods
 
-1) go run ./cmd/api/ -db-password=sabrr1se
-2) DB_PASSWORD=your_db_password make server-run
+```
+    go run ./cmd/api/ -db-password=your_postgres_password
+
+```
+
+```
+    DB_PASSWORD=your_postgres_password make server-run
+```
