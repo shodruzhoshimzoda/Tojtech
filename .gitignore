@@ -1,3 +1,4 @@
 .env
+.idea/
 .idea/dataSources.xml
 .idea/sqldialects.xml
