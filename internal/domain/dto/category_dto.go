@@ -1,12 +1,15 @@
 package dto
 
 import (
+	"github.com/google/uuid"
 	"time"
-	"uuid"
 
 	category_domain "github.com/shodruzhoshimzoda/tojtech/internal/domain/category"
 )
 
+type CategoryDTO struct {
+	UUID uuid.UUID `json:"uuid"`
+}
 
 type CategoryResponse struct {
 	UUID        uuid.UUID `json:"uuid"`
