@@ -30,7 +30,7 @@ type Product struct {
 	Description string                    `db:"description" json:"description,omitempty"`
 	Price       float64                   `db:"price" json:"price"`
 	Stock       int                       `db:"stock" json:"stock"`
-	CategoryID  int64                     `db:"category_id" json:"-"` // внутренний id, скрыли
+	CategoryID  *int64                    `db:"category_id" json:"-"` // внутренний id, скрыли
 	Category    *domain_category.Category `json:"category,omitempty"` // вложим категорию в ответ
 	IsActive    bool                      `db:"is_active" json:"is_active"`
 	CreatedAt   time.Time                 `db:"created_at" json:"created_at"`
