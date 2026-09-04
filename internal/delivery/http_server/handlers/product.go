@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
 	domain_category "github.com/shodruzhoshimzoda/tojtech/internal/domain/category"
+	"github.com/shodruzhoshimzoda/tojtech/internal/domain/dto"
 	domain_product "github.com/shodruzhoshimzoda/tojtech/internal/domain/product"
 	usecase "github.com/shodruzhoshimzoda/tojtech/internal/usecase/product"
 	"github.com/shodruzhoshimzoda/tojtech/pkg/httphelpers"
@@ -20,53 +21,6 @@ type ProductHandler struct {
 	log *slog.Logger
 }
 
-type CategoryDTO struct {
-	UUID uuid.UUID `json:"uuid"`
-}
-
-type ProductDTO struct {
-	UUID        uuid.UUID         `json:"uuid"`
-	Name        string            `json:"name"`
-	Slug        string            `json:"slug"`
-	Description string            `json:"description"`
-	Price       float64           `json:"price"`
-	Stock       int               `json:"stock"`
-	Category    *CategoryDTO      `json:"category,omitempty"`
-	CreatedAt   string            `json:"created_at"`
-	UpdatedAt   string            `json:"updated_at"`
-	Images      []ProductImageDTO `json:"images,omitempty"`
-}
-
-func NewProductDTO(p *domain_product.Product) ProductDTO {
-	imagesDTO := make([]ProductImageDTO, 0, len(p.Images))
-	for _, img := range p.Images {
-		imagesDTO = append(imagesDTO, ProductImageDTO{
-			UUID:     img.UUID,
-			ImageURL: img.ImageURL,
-			IsMain:   img.IsMain,
-		})
-	}
-
-	var categoryDTO *CategoryDTO
-	if p.Category != nil {
-		categoryDTO = &CategoryDTO{
-			UUID: p.Category.UUID,
-		}
-	}
-
-	return ProductDTO{
-		UUID:        p.UUID,
-		Name:        p.Name,
-		Slug:        p.Slug,
-		Description: p.Description,
-		Price:       p.Price,
-		Stock:       p.Stock,
-		Category:    categoryDTO,
-		CreatedAt:   p.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:   p.UpdatedAt.Format("2006-01-02 15:04:05"),
-		Images:      imagesDTO,
-	}
-}
 func NewProductHandler(usc *usecase.ProductUsecase, log *slog.Logger) *ProductHandler {
 	return &ProductHandler{
 		usc: usc,
@@ -99,7 +53,7 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 		return
 
 	}
-	prodDTO := NewProductDTO(product)
+	prodDTO := dto.NewProductDTO(product)
 	render.JSON(w, r, map[string]any{"product": prodDTO})
 }
 
@@ -111,13 +65,7 @@ func (h *ProductHandler) GetProducts(w http.ResponseWriter, r *http.Request) {
 		httphelpers.RespondError(r.Context(), w, r, http.StatusInternalServerError, "failed to list products", err, "internal server error", op)
 		return
 	}
-	var productsDTO = make([]ProductDTO, 0)
-	for _, p := range products {
-		prodDTO := NewProductDTO(p)
-		productsDTO = append(productsDTO, prodDTO)
-	}
-
-	httphelpers.RespondJSON(w, r, http.StatusOK, map[string]any{"products": productsDTO})
+	httphelpers.RespondJSON(w, r, http.StatusOK, map[string]any{"products": products})
 }
 
 func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
@@ -149,7 +97,7 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	prodDTO := NewProductDTO(&prod)
+	prodDTO := dto.NewProductDTO(&prod)
 	httphelpers.RespondJSON(w, r, http.StatusCreated, map[string]any{"product": prodDTO})
 }
 
@@ -214,6 +162,6 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	prodDTO := NewProductDTO(&req)
+	prodDTO := dto.NewProductDTO(&req)
 	httphelpers.RespondJSON(w, r, http.StatusOK, map[string]any{"product": prodDTO})
 }
