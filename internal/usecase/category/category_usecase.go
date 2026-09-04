@@ -2,8 +2,6 @@ package usecase_category
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
 
 	"github.com/google/uuid"
 	category_domain "github.com/shodruzhoshimzoda/tojtech/internal/domain/category"
@@ -29,7 +27,7 @@ func NewCategoryUseCase(categoryRepo CategoryRepo) *CategoryUseCase {
 }
 
 func (u *CategoryUseCase) GetCategory(ctx context.Context, rawUUID string) (dto.CategoryResponse, error) {
-	
+
 	id, err := uuid.Parse(rawUUID)
 	if err != nil {
 		return dto.CategoryResponse{}, category_domain.ErrInvalidUUID
@@ -48,7 +46,7 @@ func (u *CategoryUseCase) GetCategory(ctx context.Context, rawUUID string) (dto.
 
 func (u *CategoryUseCase) CreateCategory(ctx context.Context, category *category_domain.Category) (dto.CategoryResponse, error) {
 
-	id, err :=  u.categoryRepo.CreateCategory(ctx, category)
+	id, err := u.categoryRepo.CreateCategory(ctx, category)
 
 	if err != nil {
 		return dto.CategoryResponse{}, err
@@ -57,36 +55,16 @@ func (u *CategoryUseCase) CreateCategory(ctx context.Context, category *category
 	catDTO := dto.NewCategoryResponse(category)
 
 	return catDTO, nil
-	
+
 }
 
-func (u *CategoryUseCase) UpdateCategory(r *http.Request,rawUUID string,) (dto.CategoryResponse, error) {
+func (u *CategoryUseCase) UpdateCategory(ctx context.Context, id uuid.UUID, category *category_domain.Category) (*category_domain.Category, error) {
 
-
-	id, err := uuid.Parse(rawUUID)
-
-	if err != nil {
-		return dto.CategoryResponse{}, category_domain.ErrInvalidUUID
+	if err := category.Validate(); err != nil {
+		return nil, err
 	}
 
-	var req category_domain.Category
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return	dto.CategoryResponse{}, category_domain.ErrInvalidRequestBody
-	}
-
-	if err = req.Validate(); err != nil {
-		return  dto.CategoryResponse{}, category_domain.ErrInvalidBody
-	}
-
-	newCategory, err := u.categoryRepo.UpdateCategory(r.Context(), id, &req)
-
-	if err != nil {
-		return dto.CategoryResponse{}, err
-	}
-
-	catDTO := dto.NewCategoryResponse(newCategory)
-
-	return catDTO, nil
+	return u.categoryRepo.UpdateCategory(ctx, id, category)
 
 	// return u.categoryRepo.UpdateCategory(ctx, rawUUID, category)
 
@@ -97,14 +75,14 @@ func (u *CategoryUseCase) DeleteCategory(ctx context.Context, id uuid.UUID) erro
 }
 
 func (u *CategoryUseCase) GetCategories(ctx context.Context) ([]dto.CategoryResponse, error) {
-	
+
 	categories, err := u.categoryRepo.GetCategories(ctx)
 
 	if err != nil {
 		return nil, err
 	}
-	var categoriesDTO = make([]dto.CategoryResponse, 0, len(categories))		// capacity its equel to lenth of categories
-	
+	var categoriesDTO = make([]dto.CategoryResponse, 0, len(categories)) // capacity its equel to lenth of categories
+
 	for _, cat := range categories {
 
 		category := dto.NewCategoryResponse(cat)
@@ -113,7 +91,5 @@ func (u *CategoryUseCase) GetCategories(ctx context.Context) ([]dto.CategoryResp
 	}
 
 	return categoriesDTO, nil
-
-
 
 }

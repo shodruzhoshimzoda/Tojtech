@@ -18,7 +18,6 @@ import (
 	"github.com/shodruzhoshimzoda/tojtech/pkg/httphelpers"
 )
 
-
 type CategoryHandler struct {
 	logger *slog.Logger
 	ucs    *usecase.CategoryUseCase
@@ -98,72 +97,52 @@ func (c *CategoryHandler) CreateCategory(w http.ResponseWriter, r *http.Request)
 func (c *CategoryHandler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 	const op = "CategoryHandler.UpdateCategoryHandler"
 
-
-	uuID := chi.URLParam(r, "uuid")
-
-	newCat, err := c.ucs.UpdateCategory(r, uuID)
-
+	uuID, err := uuid.Parse(chi.URLParam(r, "uuid"))
 	if err != nil {
-		if errors.Is(err, category_domain.ErrInvalidUUID) {
-			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "could not parse the uuid", "product not found")
+		httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to parse the uuid", "category not found")
+		return
+	}
+
+	var req category_domain.Category
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to create category", "invalid request body")
+		return
+	}
+
+	newCategory, err := c.ucs.UpdateCategory(r.Context(), uuID, &req)
+	if err != nil {
+
+		switch err {
+
+		case category_domain.ErrInvalidCategoryName:
+			httphelpers.RespondWarnWithDesc(r.Context(), w, r, http.StatusBadRequest, "failed to parse the category", "invalid request body", err.Error())
 			return
-		}
-		if errors.Is(err, category_domain.ErrInvalidRequestBody) {
-			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to parse request body", "invalid request body")
+
+		case category_domain.ErrEmptyCategoryName:
+			httphelpers.RespondWarnWithDesc(r.Context(), w, r, http.StatusBadRequest, "failed to parse the category", "invalid request body", err.Error())
 			return
-		}
-		if errors.Is(err, category_domain.ErrInvalidBody) {
-			httphelpers.RespondWarnWithDesc(r.Context(), w, r, http.StatusBadRequest, "failed to validate category", "category is invalid", err.Error())
-				return
-		}
-		if errors.Is(err, category_domain.ErrCategoryNotFound) {
+		case category_domain.ErrSlugEmpty:
+			httphelpers.RespondWarnWithDesc(r.Context(), w, r, http.StatusBadRequest, "failed to parse the category", "invalid request body", err.Error())
+			return
+		case category_domain.ErrLongDescription:
+			httphelpers.RespondWarnWithDesc(r.Context(), w, r, http.StatusBadRequest, "failed to parse the category", "invalid request body", err.Error())
+			return
+		//////////////////
+
+		case category_domain.ErrCategoryNotFound:
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "category not found", "category not found")
 			return
-		}
-		if errors.Is(err, category_domain.ErrCategoryAlreadyExists) {
-			httphelpers.RespondWarn(r.Context(), w, r, http.StatusConflict, "category with this name already exists", "duplicate name")
+		case category_domain.ErrCategoryAlreadyExists:
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusConflict, "failed to create category", "duplicate name")
+			return
+		default:
+			httphelpers.RespondError(r.Context(), w, r, http.StatusInternalServerError, "failed to create category", err, "internal server error", op)
 			return
 		}
-
 
 	}
 
-	httphelpers.RespondJSON(w, r, http.StatusOK, map[string]any{"category": newCat})
-
-
-	// id, err := uuid.Parse(uuID)
-	// if err != nil {
-	// 	httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "could not parse the uuid", "product not found")
-	// 	return
-	// }
-
-	// var req category_domain.Category
-	// if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-	// 	httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to parse request body", "invalid request body")
-	// 	return
-	// }
-
-	// if err := req.Validate(); err != nil {
-	// 	httphelpers.RespondWarnWithDesc(r.Context(), w, r, http.StatusBadRequest, "failed to validate category", "category is invalid", err.Error())
-	// 	return
-	// }
-
-	// if err != nil {
-	// 	if errors.Is(err, category_domain.ErrCategoryNotFound) {
-	// 		httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "category not found", "category not found")
-	// 		return
-	// 	}
-	// 	if errors.Is(err, category_domain.ErrCategoryAlreadyExists) {
-	// 		httphelpers.RespondWarn(r.Context(), w, r, http.StatusConflict, "category with this name already exists", "duplicate name")
-	// 		return
-	// 	}
-
-	// 	httphelpers.RespondError(r.Context(), w, r, http.StatusInternalServerError, "failed to update category", err, "internal server error", op)
-	// 	return
-	// }
-
-	// catDTO := NewCategoryResponse(newCategory)
-
+	httphelpers.RespondJSON(w, r, http.StatusOK, map[string]any{"category": newCategory})
 
 }
 
