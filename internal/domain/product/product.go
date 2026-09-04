@@ -76,6 +76,9 @@ func ValidateImageURL(rawURL string) error {
 // Validate - this method will check each fields for our product
 func (p *Product) Validate() error {
 
+	if p.Slug == "" {
+		return ErrEmptyProductSlug
+	}
 	if p.Name == "" {
 		return ErrEmptyProductName
 	}
