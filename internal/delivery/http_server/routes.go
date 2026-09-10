@@ -14,6 +14,7 @@ import (
 func NewRoutes(
 	productHandler *handlers.ProductHandler,
 	categoryHandler *handlers.CategoryHandler,
+	authHandler *handlers.AuthHandler,
 	log *slog.Logger,
 ) chi.Router {
 
@@ -61,6 +62,11 @@ func NewRoutes(
 			})
 		})
 
+		// for registration and authentication
+		r.Route("/auth", func(r chi.Router) {
+			r.Post("/register", authHandler.RegisterUser)
+			r.Get("/login", authHandler.LoginUser)
+		})
 	})
 
 	return router

@@ -12,9 +12,15 @@ import (
 )
 
 type Config struct {
-	Env         string `yaml:"env" env-default:"local"`
+	Env         string    `yaml:"env" env-default:"local"`
+	Jwt         JWTConfig `yaml:"jwt"`
 	HttpServer  `yaml:"http-server"`
 	DatabaseDSN `yaml:"db-conn"`
+}
+
+type JWTConfig struct {
+	Secret   string        `yaml:"secret"`
+	TokenTTL time.Duration `yaml:"token-ttl" env-default:"24h"`
 }
 
 type HttpServer struct {
@@ -71,6 +77,14 @@ func MustLoadConfig() *Config {
 
 	if cfg.Password == "" {
 		log.Fatal("DB Password is not set. Use -db-password flag or DB_PASSWORD env")
+	}
+
+	if cfg.Jwt.Secret == "" {
+		log.Fatal("JWT token is not set")
+	}
+
+	if cfg.Jwt.TokenTTL == 0 {
+		log.Fatal("JWT token TTL is not set")
 	}
 
 	return &cfg

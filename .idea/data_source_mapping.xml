@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="DataSourcePerFileMappings">
-    <file url="file://$PROJECT_DIR$/internal/repository/postgres/category/category_repository.go" value="dbc82ba7-bc8d-448f-9b5f-9b36288ffcac" />
-    <file url="file://$PROJECT_DIR$/internal/repository/postgres/product/product_repository.go" value="dbc82ba7-bc8d-448f-9b5f-9b36288ffcac" />
-  </component>
-</project>

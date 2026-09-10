@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/google/uuid"
+	"github.com/shodruzhoshimzoda/tojtech/internal/domain/dto"
 	domain_product "github.com/shodruzhoshimzoda/tojtech/internal/domain/product"
 	"github.com/shodruzhoshimzoda/tojtech/pkg/httphelpers"
 )
@@ -16,14 +17,8 @@ type addImageRequest struct {
 	IsMain   bool   `json:"is_main"`
 }
 
-type ProductImageDTO struct {
-	UUID     uuid.UUID `json:"uuid"`
-	ImageURL string    `json:"image_url"`
-	IsMain   bool      `json:"is_main"`
-}
-
-func NewProductImageDTO(img *domain_product.ProductImage) ProductImageDTO {
-	return ProductImageDTO{UUID: img.UUID, ImageURL: img.ImageURL, IsMain: img.IsMain}
+func NewProductImageDTO(img *domain_product.ProductImage) dto.ProductImageDTO {
+	return dto.ProductImageDTO{UUID: img.UUID, ImageURL: img.ImageURL, IsMain: img.IsMain}
 }
 
 func (h *ProductHandler) AddProductImageHandler(w http.ResponseWriter, r *http.Request) {

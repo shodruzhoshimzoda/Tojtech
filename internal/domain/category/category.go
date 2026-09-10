@@ -1,4 +1,4 @@
-package domain_category
+package category_domain
 
 import (
 	"errors"
@@ -9,11 +9,13 @@ import (
 
 var (
 	ErrInvalidCategoryName = errors.New("the length of the product name must be less than 100 characters and greater than 0")
-	ErrEmptyCategoryName   = errors.New("product name could no be empty")
-	ErrLongDescription     = errors.New("the product description is too long")
+	ErrEmptyCategoryName   = errors.New("category name could no be empty")
+	ErrSlugEmpty           = errors.New("slug could not be emty")
 
+	ErrLongDescription       = errors.New("the product description is too long")
+	ErrInvalidUUID           = errors.New("invalud uuid")
 	ErrCategoryAlreadyExists = errors.New("the category already exists")
-	ErrCategoryNotFound      = errors.New("product not  found")
+	ErrCategoryNotFound      = errors.New("category not  found")
 )
 
 type Category struct {

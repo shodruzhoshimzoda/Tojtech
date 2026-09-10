@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/shodruzhoshimzoda/tojtech/internal/domain/dto"
 	product_domain "github.com/shodruzhoshimzoda/tojtech/internal/domain/product"
 )
 
@@ -36,9 +37,20 @@ func (p *ProductUsecase) GetProduct(ctx context.Context, id uuid.UUID) (*product
 
 }
 
-func (p *ProductUsecase) ProductList(ctx context.Context) ([]*product_domain.Product, error) {
+func (p *ProductUsecase) ProductList(ctx context.Context) ([]dto.ProductDTO, error) {
 
-	return p.repo.GetProducts(ctx)
+	products, err := p.repo.GetProducts(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var productSlice = make([]dto.ProductDTO, 0, len(products))
+	for _, p := range products {
+		prodDTO := dto.NewProductDTO(p)
+		productSlice = append(productSlice, prodDTO)
+	}
+
+	return productSlice, err
 }
 
 func (p *ProductUsecase) CreateProduct(ctx context.Context, prod *product_domain.Product) error {

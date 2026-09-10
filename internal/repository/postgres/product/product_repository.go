@@ -202,7 +202,7 @@ func (r ProductRepository) DeleteProduct(ctx context.Context, productID uuid.UUI
 
 // UpdateProduct updates a product in the database based on its UUID.
 func (r *ProductRepository) UpdateProduct(ctx context.Context, p *product_domain.Product) error {
-	if p.Category == nil {
+	if p.Category == nil || p.Category.UUID == uuid.Nil {
 		return category_domain.ErrCategoryNotFound
 	}
 
@@ -210,20 +210,20 @@ func (r *ProductRepository) UpdateProduct(ctx context.Context, p *product_domain
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback(ctx) // если Commit не вызовется - всё откатится само
+	defer tx.Rollback(ctx) // откатит если Commit не был
 
 	queryProduct := `
-		UPDATE products
+	UPDATE products
 		SET
 			name = $1,
 			slug = $2,
 			description = $3,
 			price = $4,
 			stock = $5,
-			category_id = (SELECT id FROM categories WHERE uuid = $6),
+			category_id = (SELECT id FROM categories WHERE uuid = $6), -- если uuid не найден -> NULL
 			updated_at = NOW()
 		WHERE uuid = $7
-		RETURNING id, uuid, name, slug, description, price, stock, category_id, is_active, created_at, updated_at
+	RETURNING id, uuid, name, slug, description, price, stock, category_id, is_active, created_at, updated_at
 	`
 
 	err = tx.QueryRow(ctx, queryProduct,
@@ -239,13 +239,21 @@ func (r *ProductRepository) UpdateProduct(ctx context.Context, p *product_domain
 		}
 
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return product_domain.ErrProductAlreadyExists
+		if errors.As(err, &pgErr) {
+			switch pgErr.Code {
+			case "23505": // unique_violation - дубль slug
+				return product_domain.ErrProductAlreadyExists
+			case "23503": // foreign_key_violation - сломался другой FK
+				return category_domain.ErrCategoryNotFound
+			case "23502": // not_null_violation - SELECT вернул NULL т.к категории нет
+				return category_domain.ErrCategoryNotFound
+			}
 		}
 
 		return fmt.Errorf("update product: %w", err)
 	}
 
+	// обновление картинок
 	if len(p.Images) > 0 {
 		if _, err := tx.Exec(ctx, `DELETE FROM product_images WHERE product_id = $1`, p.ID); err != nil {
 			return fmt.Errorf("delete old images: %w", err)
@@ -262,12 +270,12 @@ func (r *ProductRepository) UpdateProduct(ctx context.Context, p *product_domain
 
 			if err := tx.QueryRow(ctx, queryImage, img.ProductID, img.ImageURL, img.IsMain).
 				Scan(&img.ID, &img.UUID, &img.ImageURL, &img.IsMain); err != nil {
-				return fmt.Errorf("insert image: %w", err) // defer Rollback откатит и UPDATE products тоже
+				return fmt.Errorf("insert image: %w", err)
 			}
 		}
 	}
 
-	if err := tx.Commit(ctx); err != nil {
+	if err := tx.Commit(ctx); err != nil { // <- ВОТ ЭТОГО НЕ ХВАТАЛО
 		return fmt.Errorf("commit transaction: %w", err)
 	}
 

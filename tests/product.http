@@ -1,0 +1,471 @@
+### tests/product.http
+### GoLand HTTP Client API Test для /api/v1/products
+### Запускать сверху вниз (Run All Requests in File) — тесты используют
+### client.global, чтобы передавать uuid категории/товара между запросами.
+### Требования: сервер поднят на localhost:8080, БД смигрирована и доступна.
+
+@baseUrl = http://localhost:8080/api/v1
+
+# =========================================================
+# 0. Подготовка: категория, к которой будем привязывать товары
+# =========================================================
+
+### 0. Создать категорию-фикстуру для тестов продуктов
+POST {{baseUrl}}/categories
+Content-Type: application/json
+
+{
+  "name": "Smartphones",
+  "slug": "smartphones-test",
+  "description": "fixture category for product tests"
+}
+
+> {%
+client.test("category created", function () {
+    client.assert(response.status === 201, "expected 201, got " + response.status);
+    client.assert(response.body.category.uuid, "category uuid missing in response");
+});
+client.global.set("categoryUuid", response.body.category.uuid);
+%}
+
+
+### =========================================================
+# GetProducts - GET /products
+### =========================================================
+
+### 1. Список всех товаров - happy path
+GET {{baseUrl}}/products
+
+> {%
+client.test("status 200", function () {
+    client.assert(response.status === 200, "expected 200, got " + response.status);
+});
+client.test("has products array", function () {
+    client.assert(Array.isArray(response.body.products), "products is not an array");
+});
+%}
+
+
+### =========================================================
+# CreateProduct - POST /products
+### =========================================================
+
+### 2. Создать товар - happy path
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{
+  "name": "iPhone 15",
+  "slug": "iphone-15-test",
+  "description": "128GB, Blue",
+  "price": 999.99,
+  "stock": 10,
+  "category": {
+    "uuid": "{{categoryUuid}}"
+  }
+}
+
+> {%
+client.test("status 201", function () {
+    client.assert(response.status === 201, "expected 201, got " + response.status);
+});
+client.test("product body is correct", function () {
+    client.assert(response.body.product.uuid, "product uuid missing");
+    client.assert(response.body.product.slug === "iphone-15-test", "unexpected slug");
+    client.assert(response.body.product.category.uuid === client.global.get("categoryUuid"), "category not linked");
+});
+client.global.set("productUuid", response.body.product.uuid);
+%}
+
+
+### 3. Создать товар - без поля category (ожидаем 400 "specified category does not exist")
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{
+  "name": "No Category Product",
+  "slug": "no-category-test",
+  "price": 10,
+  "stock": 1
+}
+
+> {%
+client.test("status 400", function () {
+    client.assert(response.status === 400, "expected 400, got " + response.status);
+});
+%}
+### NOTE: сейчас проходит валидацию Validate() (там Category не проверяется)
+### и падает только в репозитории. Стоит явно проверять Category в Product.Validate().
+
+
+### 4. Создать товар - несуществующая категория
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{
+  "name": "Ghost Category Product",
+  "slug": "ghost-category-product-test",
+  "price": 5,
+  "stock": 1,
+  "category": { "uuid": "00000000-0000-0000-0000-000000000000" }
+}
+
+> {%
+client.test("status 400", function () {
+    client.assert(response.status === 400, "expected 400, got " + response.status);
+});
+client.test("error message", function () {
+    client.assert(response.body.error === "specified category does not exist", "unexpected error: " + response.body.error);
+});
+%}
+
+
+### 5. Создать товар - пустое имя (валидация)
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{
+  "name": "",
+  "slug": "empty-name-test",
+  "price": 10,
+  "stock": 1,
+  "category": { "uuid": "{{categoryUuid}}" }
+}
+
+> {%
+client.test("status 400", function () {
+    client.assert(response.status === 400, "expected 400, got " + response.status);
+});
+%}
+
+
+### 6. Создать товар - отрицательная цена (валидация)
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{
+  "name": "Negative Price",
+  "slug": "negative-price-test",
+  "price": -1,
+  "stock": 1,
+  "category": { "uuid": "{{categoryUuid}}" }
+}
+
+> {%
+client.test("status 400", function () {
+    client.assert(response.status === 400, "expected 400, got " + response.status);
+});
+%}
+
+
+### 7. Создать товар - отрицательный stock (валидация)
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{
+  "name": "Negative Stock",
+  "slug": "negative-stock-test",
+  "price": 10,
+  "stock": -5,
+  "category": { "uuid": "{{categoryUuid}}" }
+}
+
+> {%
+client.test("status 400", function () {
+    client.assert(response.status === 400, "expected 400, got " + response.status);
+});
+%}
+
+
+### 8. Создать товар - пустой slug (валидация)
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{
+  "name": "No Slug",
+  "slug": "",
+  "price": 10,
+  "stock": 1,
+  "category": { "uuid": "{{categoryUuid}}" }
+}
+
+> {%
+client.test("status 400", function () {
+    client.assert(response.status === 400, "expected 400, got " + response.status);
+});
+%}
+
+
+### 9. Создать товар - битый JSON
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{ "name": "Broken", "slug": }
+
+> {%
+client.test("status 400", function () {
+    client.assert(response.status === 400, "expected 400, got " + response.status);
+});
+%}
+
+
+### 10. Создать товар - дубликат slug (должен быть выполнен ПОСЛЕ теста 2)
+POST {{baseUrl}}/products
+Content-Type: application/json
+
+{
+  "name": "iPhone 15 Duplicate",
+  "slug": "iphone-15-test",
+  "price": 899,
+  "stock": 3,
+  "category": { "uuid": "{{categoryUuid}}" }
+}
+
+> {%
+client.test("status 409", function () {
+    client.assert(response.status === 409, "expected 409, got " + response.status);
+});
+%}
+
+
+### =========================================================
+# GetProduct - GET /products/{uuid}
+### =========================================================
+
+### 11. Получить товар по UUID - happy path
+GET {{baseUrl}}/products/{{productUuid}}
+
+> {%
+client.test("status 200", function () {
+    client.assert(response.status === 200, "expected 200, got " + response.status);
+});
+client.test("correct product returned", function () {
+    client.assert(response.body.product.uuid === client.global.get("productUuid"), "uuid mismatch");
+});
+%}
+
+
+### 12. Получить товар - невалидный формат UUID
+GET {{baseUrl}}/products/not-a-valid-uuid
+
+> {%
+client.test("status 400", function () {
+    client.assert(response.status === 400, "expected 400, got " + response.status);
+});
+%}
+
+
+### 13. Получить товар - валидный UUID, которого нет
+GET {{baseUrl}}/products/00000000-0000-0000-0000-000000000000
+
+> {%
+client.test("status 404", function () {
+    client.assert(response.status === 404, "expected 404, got " + response.status);
+});
+%}
+
+
+### =========================================================
+# UpdateProduct - PATCH /products/{uuid}
+### =========================================================
+
+### 14. Обновить товар - happy path
+PATCH {{baseUrl}}/products/{{productUuid}}
+Content-Type: application/json
+
+{
+  "name": "iPhone 15 Pro",
+  "slug": "iphone-15-test",
+  "description": "256GB, Black",
+  "price": 1199.99,
+  "stock": 5,
+  "category": { "uuid": "{{categoryUuid}}" }
+}
+
+> {%
+client.test("status 200", function () {
+    client.assert(response.status === 200, "expected 200, got " + response.status);
+});
+client.test("fields updated", function () {
+    client.assert(response.body.product.name === "iPhone 15 Pro", "name not updated");
+    client.assert(response.body.product.stock === 5, "stock not updated");
+});
+%}
+
+
+### 15. Обновить товар - невалидный UUID в пути
+PATCH {{baseUrl}}/products/not-a-valid-uuid
+Content-Type: application/json
+
+{
+  "name": "Doesn't matter",
+  "slug": "doesnt-matter",
+  "price": 1,
+  "stock": 1,
+  "category": { "uuid": "{{categoryUuid}}" }
+}
+
+> {%
+client.test("status 400", function () {
+    client.assert(response.status === 400, "expected 400, got " + response.status);
+});
+%}
+
+
+### 16. Обновить товар - несуществующий UUID
+PATCH {{baseUrl}}/products/00000000-0000-0000-0000-000000000000
+Content-Type: application/json
+
+{
+  "name": "Ghost",
+  "slug": "ghost-product-test",
+  "price": 1,
+  "stock": 1,
+  "category": { "uuid": "{{categoryUuid}}" }
+}
+
+> {%
+client.test("status 404", function () {
+    client.assert(response.status === 404, "expected 404, got " + response.status);
+});
+%}
+
+
+### 17. Обновить товар - валидационная ошибка (пустое имя)
+PATCH {{baseUrl}}/products/{{productUuid}}
+Content-Type: application/json
+
+{
+  "name": "",
+  "slug": "iphone-15-test",
+  "price": 1,
+  "stock": 1,
+  "category": { "uuid": "{{categoryUuid}}" }
+}
+
+> {%
+client.test("status 400", function () {
+    client.assert(response.status === 400, "expected 400, got " + response.status);
+});
+%}
+
+
+### 18. Обновить товар - несуществующая категория
+PATCH {{baseUrl}}/products/{{productUuid}}
+Content-Type: application/json
+
+{
+  "name": "iPhone 15 Pro",
+  "slug": "iphone-15-test",
+  "price": 1199.99,
+  "stock": 5,
+  "category": { "uuid": "00000000-0000-0000-0000-000000000000" }
+}
+
+> {%
+client.test("status 400", function () {
+    client.assert(response.status === 400, "expected 400, got " + response.status);
+});
+%}
+
+
+### =========================================================
+# Product images - POST/DELETE /products/{uuid}/images
+### =========================================================
+
+### 19. Добавить картинку товару - happy path
+POST {{baseUrl}}/products/{{productUuid}}/images
+Content-Type: application/json
+
+{
+  "image_url": "https://cdn.example.com/iphone-15-front.jpg",
+  "is_main": true
+}
+
+> {%
+client.test("status 201", function () {
+    client.assert(response.status === 201, "expected 201, got " + response.status);
+});
+client.global.set("imageUuid", response.body.image.uuid);
+%}
+
+
+### 20. Добавить картинку - невалидный URL
+POST {{baseUrl}}/products/{{productUuid}}/images
+Content-Type: application/json
+
+{ "image_url": "not-a-url", "is_main": false }
+
+> {%
+client.test("status 400", function () {
+    client.assert(response.status === 400, "expected 400, got " + response.status);
+});
+%}
+
+
+### 21. Удалить картинку - happy path
+DELETE {{baseUrl}}/products/{{productUuid}}/images/{{imageUuid}}
+
+> {%
+client.test("status 204", function () {
+    client.assert(response.status === 204, "expected 204, got " + response.status);
+});
+%}
+
+
+### =========================================================
+# DeleteProduct - DELETE /products/{uuid}
+### =========================================================
+
+### 22. Удалить товар - невалидный UUID
+DELETE {{baseUrl}}/products/not-a-valid-uuid
+
+> {%
+client.test("status 400", function () {
+    client.assert(response.status === 400, "expected 400, got " + response.status);
+});
+%}
+
+
+### 23. Удалить товар - несуществующий UUID
+DELETE {{baseUrl}}/products/00000000-0000-0000-0000-000000000000
+
+> {%
+client.test("status 404", function () {
+    client.assert(response.status === 404, "expected 404, got " + response.status);
+});
+%}
+
+
+### 24. Удалить товар - happy path
+DELETE {{baseUrl}}/products/{{productUuid}}
+
+> {%
+client.test("status 204", function () {
+    client.assert(response.status === 204, "expected 204, got " + response.status);
+});
+%}
+
+
+### 25. Проверить удаление - повторный GET должен вернуть 404
+GET {{baseUrl}}/products/{{productUuid}}
+
+> {%
+client.test("product gone", function () {
+    client.assert(response.status === 404, "expected 404, got " + response.status);
+});
+%}
+
+
+### =========================================================
+# Уборка за собой
+### =========================================================
+
+### 26. Удалить фикстурную категорию
+DELETE {{baseUrl}}/categories/{{categoryUuid}}
+
+> {%
+client.test("status 204", function () {
+    client.assert(response.status === 204, "expected 204, got " + response.status);
+});
+%}
