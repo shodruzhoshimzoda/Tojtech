@@ -1,4 +1,8 @@
-env: "local"  # "local","development","production (prod)"
+env: "local" # "local","development","production (prod)"
+jwt:
+  secret: "MySecretPa33word"
+  token-ttl: 24h
+
 http-server:
   host: "localhost"
   port: 8080
