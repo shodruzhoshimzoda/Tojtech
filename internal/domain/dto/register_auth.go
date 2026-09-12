@@ -4,11 +4,12 @@ import (
 	"errors"
 	"net/mail"
 	"strings"
+
+	domain_user "github.com/shodruzhoshimzoda/tojtech/internal/domain/user"
 )
 
 var (
 	ErrEmailRequired    error = errors.New("email is required")
-	ErrInvalidEmail     error = errors.New("invalid email")
 	ErrPasswordRequired error = errors.New("password is required")
 )
 
@@ -28,7 +29,7 @@ func (r *RegisterDTO) Validate() error {
 	}
 
 	if _, err := mail.ParseAddress(r.Email); err != nil {
-		return ErrInvalidEmail
+		return domain_user.ErrInvalidEmailOrPassword
 	}
 
 	if r.Password == "" {
@@ -50,7 +51,7 @@ func (l *LoginDTO) Validate() error {
 		return ErrPasswordRequired
 	}
 	if _, err := mail.ParseAddress(l.Email); err != nil {
-		return ErrInvalidEmail
+		return domain_user.ErrInvalidEmailOrPassword
 	}
 
 	if l.Password == "" {
