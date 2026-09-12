@@ -33,12 +33,12 @@ func (h *AuthHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.usc.RegisterUser(r.Context(), req)
 	if err != nil {
-		if errors.Is(err, dto.ErrInvalidEmail) {
-			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "invalid email", "invalid email")
+		if errors.Is(err, domain_user.ErrInvalidEmailOrPassword) {
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "invalid email", "invalid email or password")
 			return
 		}
 		if errors.Is(err, domain_user.ErrUserAlreadyExists) {
-			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "user already exists", "duplicate user")
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusConflict, "user already exists", "duplicate user")
 			return
 		}
 
@@ -77,9 +77,15 @@ func (h *AuthHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.usc.LoginUser(r.Context(), req)
 	if err != nil {
 		if errors.Is(err, domain_user.ErrInvalidEmailOrPassword) {
-			http.Error(w, "invalid email or password", http.StatusUnauthorized)
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "invalid email or password", "invalid email or password")
 			return
 		}
+
+		if errors.Is(err, domain_user.ErrUserNotFound) {
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusUnauthorized, "user not found", "user not found")
+			return
+		}
+
 		httphelpers.RespondError(r.Context(), w, r, http.StatusInternalServerError, "failed to create user", err, "Internal Server error", op)
 		return
 	}
