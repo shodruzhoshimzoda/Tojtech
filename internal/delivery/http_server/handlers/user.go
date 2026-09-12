@@ -36,6 +36,12 @@ func (h *AuthHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "invalid email format", "invalid email or password")
 			return
 		}
+
+		if errors.Is(err, dto.ErrPasswordIsWeek) {
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "password is week", "password is week")
+			return
+		}
+
 		if errors.Is(err, dto.ErrEmailRequired) {
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to register user", "email is required")
 			return

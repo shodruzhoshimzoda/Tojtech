@@ -11,6 +11,7 @@ import (
 var (
 	ErrEmailRequired    error = errors.New("email is required")
 	ErrPasswordRequired error = errors.New("password is required")
+	ErrPasswordIsWeek   error = errors.New("password is week")
 )
 
 /*	 Registration		*/
@@ -30,6 +31,10 @@ func (r *RegisterDTO) Validate() error {
 
 	if _, err := mail.ParseAddress(r.Email); err != nil {
 		return domain_user.ErrInvalidEmailOrPassword
+	}
+
+	if len(r.Password) < 8 {
+		return ErrPasswordIsWeek
 	}
 
 	if r.Password == "" {
