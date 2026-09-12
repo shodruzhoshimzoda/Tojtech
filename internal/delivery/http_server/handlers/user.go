@@ -76,6 +76,15 @@ func (h *AuthHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.usc.LoginUser(r.Context(), req)
 	if err != nil {
+		if errors.Is(err, dto.ErrEmailRequired) {
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to login user", "email is required")
+			return
+		}
+		if errors.Is(err, dto.ErrPasswordRequired) {
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to login user", "password is required")
+			return
+		}
+
 		if errors.Is(err, domain_user.ErrInvalidEmailOrPassword) {
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "invalid email or password", "invalid email or password")
 			return
