@@ -50,34 +50,24 @@ func (u *AuthUsercase) RegisterUser(ctx context.Context, userDTO dto.RegisterDTO
 	}
 
 	userUUID, err := u.repo.CreateUser(ctx, &user)
+	if err != nil {
+		return dto.AuthResponseDTO{}, err
+	}
 
 	// set user UUID
 
 	user.UUID = userUUID
 
-	resp := dto.AuthResponseDTO{
-		TokenType: "Bearer",
-		ExpiresIn: int(u.ttl.Seconds()),
-		User: dto.UserResponseDTO{
-			UUID:  user.UUID.String(),
-			Email: user.Email,
-			Role:  user.Role,
-		}}
-
-	if err != nil {
-		return dto.AuthResponseDTO{}, err
-	}
-
-	return resp, nil
+	return u.GenerateToken(&user)
 }
 
 // LoginUser
-func (r *AuthUsercase) LoginUser(ctx context.Context, userDTO dto.LoginDTO) (dto.AuthResponseDTO, error) {
+func (u *AuthUsercase) LoginUser(ctx context.Context, userDTO dto.LoginDTO) (dto.AuthResponseDTO, error) {
 	if err := userDTO.Validate(); err != nil {
 		return dto.AuthResponseDTO{}, err
 	}
 
-	user, err := r.repo.GetUserByEmail(ctx, userDTO.Email)
+	user, err := u.repo.GetUserByEmail(ctx, userDTO.Email)
 	if err != nil {
 		return dto.AuthResponseDTO{}, domain_user.ErrInvalidEmailOrPassword
 	}
@@ -87,32 +77,31 @@ func (r *AuthUsercase) LoginUser(ctx context.Context, userDTO dto.LoginDTO) (dto
 		return dto.AuthResponseDTO{}, domain_user.ErrInvalidEmailOrPassword
 	}
 
-	// JWT token generating
-
+	// sign token
+	return u.GenerateToken(&user)
+}
+func (u *AuthUsercase) GenerateToken(user *domain_user.User) (dto.AuthResponseDTO, error) {
 	claims := jwt.MapClaims{
 		"sub":  user.UUID.String(),
-		"exp":  time.Now().Add(r.ttl).Unix(),
 		"role": user.Role,
 		"iat":  time.Now().Unix(),
+		"exp":  time.Now().Add(u.ttl).Unix(),
 	}
 
-	// sign token
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(r.jwtSecret)
+	tokenString, err := token.SignedString(u.jwtSecret)
 	if err != nil {
-
 		return dto.AuthResponseDTO{}, fmt.Errorf("failed to sign token: %w", err)
 	}
 
-	resp := dto.AuthResponseDTO{
+	return dto.AuthResponseDTO{
 		AccessToken: tokenString,
 		TokenType:   "Bearer",
-		ExpiresIn:   int(r.ttl.Hours()),
+		ExpiresIn:   int(u.ttl.Seconds()), // Возвращаем время жизни в секундах
 		User: dto.UserResponseDTO{
 			UUID:  user.UUID.String(),
 			Email: user.Email,
 			Role:  user.Role,
-		}}
-
-	return resp, nil
+		},
+	}, nil
 }
