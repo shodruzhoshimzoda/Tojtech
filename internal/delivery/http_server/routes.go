@@ -65,7 +65,7 @@ func NewRoutes(
 		// for registration and authentication
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", authHandler.RegisterUser)
-			r.Get("/login", authHandler.LoginUser)
+			r.Post("/login", authHandler.LoginUser)
 		})
 	})
 
