@@ -57,7 +57,7 @@ func (u *AuthUsercase) RegisterUser(ctx context.Context, userDTO dto.RegisterDTO
 
 	resp := dto.AuthResponseDTO{
 		TokenType: "Bearer",
-		ExpiresIn: int(u.ttl.Hours()),
+		ExpiresIn: int(u.ttl.Seconds()),
 		User: dto.UserResponseDTO{
 			UUID:  user.UUID.String(),
 			Email: user.Email,
@@ -79,7 +79,7 @@ func (r *AuthUsercase) LoginUser(ctx context.Context, userDTO dto.LoginDTO) (dto
 
 	user, err := r.repo.GetUserByEmail(ctx, userDTO.Email)
 	if err != nil {
-		return dto.AuthResponseDTO{}, domain_user.ErrUserNotFound
+		return dto.AuthResponseDTO{}, domain_user.ErrInvalidEmailOrPassword
 	}
 
 	// check password
