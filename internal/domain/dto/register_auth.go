@@ -46,10 +46,15 @@ type LoginDTO struct {
 }
 
 func (l *LoginDTO) Validate() error {
+
 	l.Email = strings.TrimSpace(l.Email)
 	if l.Password == "" {
 		return ErrPasswordRequired
 	}
+	if l.Email == "" {
+		return ErrEmailRequired
+	}
+
 	if _, err := mail.ParseAddress(l.Email); err != nil {
 		return domain_user.ErrInvalidEmailOrPassword
 	}
