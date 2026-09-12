@@ -31,10 +31,29 @@ func (h *AuthHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.usc.RegisterUser(r.Context(), req)
+	resp, err := h.usc.RegisterUser(r.Context(), req)
 	if err != nil {
+		if errors.Is(err, dto.ErrInvalidEmail) {
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "invalid email", "invalid email")
+			return
+		}
 		if errors.Is(err, domain_user.ErrUserAlreadyExists) {
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "user already exists", "duplicate user")
+			return
+		}
+
+		if errors.Is(err, domain_user.ErrInvalidEmailOrPassword) {
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "invalid email or password", "invalid email or password")
+			return
+		}
+
+		if errors.Is(err, dto.ErrEmailRequired) {
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to register user", "email is required")
+			return
+		}
+
+		if errors.Is(err, dto.ErrPasswordRequired) {
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to register user", "password is required")
 			return
 		}
 
@@ -42,7 +61,8 @@ func (h *AuthHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	httphelpers.RespondJSON(w, r, http.StatusCreated, resp)
+
 }
 
 func (h *AuthHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +74,7 @@ func (h *AuthHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.usc.LoginUser(r.Context(), req)
+	resp, err := h.usc.LoginUser(r.Context(), req)
 	if err != nil {
 		if errors.Is(err, domain_user.ErrInvalidEmailOrPassword) {
 			http.Error(w, "invalid email or password", http.StatusUnauthorized)
@@ -64,7 +84,5 @@ func (h *AuthHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httphelpers.RespondJSON(w, r, http.StatusOK, map[string]string{
-		"token": token,
-	})
+	httphelpers.RespondJSON(w, r, http.StatusOK, resp)
 }
