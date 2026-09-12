@@ -33,7 +33,7 @@ func (h *AuthHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.usc.RegisterUser(r.Context(), req)
 	if err != nil {
 		if errors.Is(err, domain_user.ErrInvalidEmailOrPassword) {
-			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "invalid email format", "invalid email format")
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "invalid email format", "invalid email or password")
 			return
 		}
 		if errors.Is(err, dto.ErrEmailRequired) {
