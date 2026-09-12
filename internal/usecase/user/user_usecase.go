@@ -32,45 +32,59 @@ func NewAuthUsercase(repo UserRepo, jwtSecret []byte, ttl time.Duration) *AuthUs
 }
 
 // RegisterUser - this method will register user to system
-func (u *AuthUsercase) RegisterUser(ctx context.Context, dto dto.RegisterDTO) (uuid.UUID, error) {
-	if err := dto.Validate(); err != nil {
-		return uuid.Nil, err
+func (u *AuthUsercase) RegisterUser(ctx context.Context, userDTO dto.RegisterDTO) (dto.AuthResponseDTO, error) {
+	if err := userDTO.Validate(); err != nil {
+		return dto.AuthResponseDTO{}, err
 	}
 
 	// hashing password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(dto.Password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(userDTO.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return uuid.Nil, err
+		return dto.AuthResponseDTO{}, err
 	}
 
-	user := &domain_user.User{
-		Email:        dto.Email,
+	user := domain_user.User{
+		Email:        userDTO.Email,
 		PasswordHash: string(hashedPassword),
 		Role:         "customer",
 	}
 
-	userUUid, err := u.repo.CreateUser(ctx, user)
+	userUUID, err := u.repo.CreateUser(ctx, &user)
+
+	// set user UUID
+
+	user.UUID = userUUID
+
+	resp := dto.AuthResponseDTO{
+		TokenType: "Bearer",
+		ExpiresIn: int(u.ttl.Seconds()),
+		User: dto.UserResponseDTO{
+			UUID:  user.UUID.String(),
+			Email: user.Email,
+			Role:  user.Role,
+		}}
+
 	if err != nil {
-		return uuid.Nil, err
+		return dto.AuthResponseDTO{}, err
 	}
 
-	return userUUid, nil
+	return resp, nil
 }
 
 // LoginUser
-func (r *AuthUsercase) LoginUser(ctx context.Context, dto dto.LoginDTO) (string, error) {
-	if err := dto.Validate(); err != nil {
-		return "", err
+func (r *AuthUsercase) LoginUser(ctx context.Context, userDTO dto.LoginDTO) (dto.AuthResponseDTO, error) {
+	if err := userDTO.Validate(); err != nil {
+		return dto.AuthResponseDTO{}, err
 	}
 
-	user, err := r.repo.GetUserByEmail(ctx, dto.Email)
+	user, err := r.repo.GetUserByEmail(ctx, userDTO.Email)
 	if err != nil {
-		return "", domain_user.ErrInvalidEmailOrPassword
+		return dto.AuthResponseDTO{}, domain_user.ErrInvalidEmailOrPassword
 	}
 
 	// check password
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(dto.Password)); err != nil {
-		return "", domain_user.ErrInvalidEmailOrPassword
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(userDTO.Password)); err != nil {
+		return dto.AuthResponseDTO{}, domain_user.ErrInvalidEmailOrPassword
 	}
 
 	// JWT token generating
@@ -86,7 +100,19 @@ func (r *AuthUsercase) LoginUser(ctx context.Context, dto dto.LoginDTO) (string,
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(r.jwtSecret)
 	if err != nil {
-		return "", fmt.Errorf("failed to sign token: %w", err)
+
+		return dto.AuthResponseDTO{}, fmt.Errorf("failed to sign token: %w", err)
 	}
-	return tokenString, nil
+
+	resp := dto.AuthResponseDTO{
+		AccessToken: tokenString,
+		TokenType:   "Bearer",
+		ExpiresIn:   int(r.ttl.Seconds()),
+		User: dto.UserResponseDTO{
+			UUID:  user.UUID.String(),
+			Email: user.Email,
+			Role:  user.Role,
+		}}
+
+	return resp, nil
 }
