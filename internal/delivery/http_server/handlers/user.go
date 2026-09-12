@@ -22,8 +22,7 @@ func NewAuthHandler(uc *user_usecase.AuthUsercase) *AuthHandler {
 }
 
 func (h *AuthHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
-
-	op := "ProductHandler.RegisterUser"
+	op := "AuthHandler.RegisterUser"
 	var req dto.RegisterDTO
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -33,15 +32,6 @@ func (h *AuthHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.usc.RegisterUser(r.Context(), req)
 	if err != nil {
-		if errors.Is(err, domain_user.ErrInvalidEmailOrPassword) {
-			httphelpers.RespondWarn(r.Context(), w, r, http.StatusUnauthorized, "invalid email", "invalid email or password")
-			return
-		}
-		if errors.Is(err, domain_user.ErrInvalidEmailOrPassword) {
-			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "invalid email or password", "invalid email or password")
-			return
-		}
-
 		if errors.Is(err, dto.ErrEmailRequired) {
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to register user", "email is required")
 			return
@@ -52,16 +42,20 @@ func (h *AuthHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if errors.Is(err, domain_user.ErrUserAlreadyExists) {
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusConflict, "user already exists", "user with this email already exists")
+			return
+		}
+
 		httphelpers.RespondError(r.Context(), w, r, http.StatusInternalServerError, "failed to create user", err, "Internal Server error", op)
 		return
 	}
 
 	httphelpers.RespondJSON(w, r, http.StatusCreated, resp)
-
 }
 
 func (h *AuthHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
-	op := "ProductHandler.LoginUser"
+	op := "AuthHandler.LoginUser"
 	var req dto.LoginDTO
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -80,17 +74,13 @@ func (h *AuthHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if errors.Is(err, domain_user.ErrInvalidEmailOrPassword) {
-			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "invalid email or password", "invalid email or password")
+		// Возвращаем 401 Unauthorized для любых неверных учетных данных
+		if errors.Is(err, domain_user.ErrInvalidEmailOrPassword) || errors.Is(err, domain_user.ErrUserNotFound) {
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusUnauthorized, "invalid credentials", "invalid email or password")
 			return
 		}
 
-		if errors.Is(err, domain_user.ErrUserNotFound) {
-			httphelpers.RespondWarn(r.Context(), w, r, http.StatusUnauthorized, "user not found", "user not found")
-			return
-		}
-
-		httphelpers.RespondError(r.Context(), w, r, http.StatusInternalServerError, "failed to create user", err, "Internal Server error", op)
+		httphelpers.RespondError(r.Context(), w, r, http.StatusInternalServerError, "failed to login user", err, "Internal Server error", op)
 		return
 	}
 
