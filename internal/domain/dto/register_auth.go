@@ -59,3 +59,17 @@ func (l *LoginDTO) Validate() error {
 
 	return nil
 }
+
+// AuthResponseDTO - request to user after successfully authentication
+type AuthResponseDTO struct {
+	AccessToken string          `json:"access_token,omitempty"`
+	TokenType   string          `json:"token_type"`
+	ExpiresIn   int             `json:"expires_in"`
+	User        UserResponseDTO `json:"user"`
+}
+
+type UserResponseDTO struct {
+	UUID  string `json:"uuid"`
+	Email string `json:"email"`
+	Role  string `json:"role"`
+}
