@@ -34,14 +34,9 @@ func (h *AuthHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.usc.RegisterUser(r.Context(), req)
 	if err != nil {
 		if errors.Is(err, domain_user.ErrInvalidEmailOrPassword) {
-			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "invalid email", "invalid email or password")
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusUnauthorized, "invalid email", "invalid email or password")
 			return
 		}
-		if errors.Is(err, domain_user.ErrUserAlreadyExists) {
-			httphelpers.RespondWarn(r.Context(), w, r, http.StatusConflict, "user already exists", "duplicate user")
-			return
-		}
-
 		if errors.Is(err, domain_user.ErrInvalidEmailOrPassword) {
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "invalid email or password", "invalid email or password")
 			return
