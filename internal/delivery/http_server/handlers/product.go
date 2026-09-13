@@ -77,14 +77,12 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := prod.Validate(); err != nil {
-		httphelpers.RespondWarnWithDesc(r.Context(), w, r, http.StatusBadRequest, "failed to validate product", "product is invalid", err.Error())
-		return
-	}
-
 	err := h.usc.CreateProduct(r.Context(), &prod)
 	if err != nil {
 		switch {
+		case errors.Is(err, domain_product.ErrFailedValidation):
+			httphelpers.RespondWarnWithDesc(r.Context(), w, r, http.StatusBadRequest, "failed to validate product", "product is invalid", err.Error())
+			return
 		case errors.Is(err, domain_category.ErrCategoryNotFound):
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to create product", "specified category does not exist")
 			return
@@ -138,15 +136,13 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := req.Validate(); err != nil {
-		httphelpers.RespondWarnWithDesc(r.Context(), w, r, http.StatusBadRequest, "failed to validate product", "product is invalid", err.Error())
-		return
-	}
-
 	req.UUID = id // UUID из URL всегда главнее того, что могло прийти в теле запроса
 
 	if err := h.usc.UpdateProduct(r.Context(), &req); err != nil {
 		switch {
+		case errors.Is(err, domain_product.ErrFailedValidation):
+			httphelpers.RespondWarnWithDesc(r.Context(), w, r, http.StatusBadRequest, "failed to validate product", "product is invalid", err.Error())
+			return
 		case errors.Is(err, domain_product.ErrProductNotFound):
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "product not found", "product not found")
 
