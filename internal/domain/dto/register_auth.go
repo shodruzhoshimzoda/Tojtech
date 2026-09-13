@@ -33,13 +33,14 @@ func (r *RegisterDTO) Validate() error {
 		return domain_user.ErrInvalidEmailOrPassword
 	}
 
+	if r.Password == "" {
+		return ErrPasswordRequired
+	}
+
 	if len(r.Password) < 8 {
 		return ErrPasswordIsWeek
 	}
 
-	if r.Password == "" {
-		return ErrPasswordRequired
-	}
 	return nil
 }
 
@@ -62,10 +63,6 @@ func (l *LoginDTO) Validate() error {
 
 	if _, err := mail.ParseAddress(l.Email); err != nil {
 		return domain_user.ErrInvalidEmailOrPassword
-	}
-
-	if l.Password == "" {
-		return ErrPasswordRequired
 	}
 
 	return nil
