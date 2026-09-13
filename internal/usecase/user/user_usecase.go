@@ -2,6 +2,7 @@ package user_usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -69,7 +70,12 @@ func (u *AuthUsercase) LoginUser(ctx context.Context, userDTO dto.LoginDTO) (dto
 
 	user, err := u.repo.GetUserByEmail(ctx, userDTO.Email)
 	if err != nil {
-		return dto.AuthResponseDTO{}, domain_user.ErrInvalidEmailOrPassword
+		if errors.Is(err, domain_user.ErrUserNotFound) {
+			return dto.AuthResponseDTO{}, domain_user.ErrInvalidEmailOrPassword
+
+		}
+
+		return dto.AuthResponseDTO{}, err
 	}
 
 	// check password
