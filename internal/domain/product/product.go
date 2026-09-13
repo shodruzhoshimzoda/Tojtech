@@ -20,8 +20,6 @@ var (
 
 	ErrProductNotFound      = errors.New("product not found")
 	ErrProductAlreadyExists = errors.New("product with this slug already exists")
-
-	ErrFailedValidation = errors.New("product validation failed")
 )
 
 type Product struct {
