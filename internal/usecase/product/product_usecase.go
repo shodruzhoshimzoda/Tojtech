@@ -55,7 +55,7 @@ func (p *ProductUsecase) ProductList(ctx context.Context) ([]dto.ProductDTO, err
 
 func (p *ProductUsecase) CreateProduct(ctx context.Context, prod *domain_product.Product) error {
 	if err := prod.Validate(); err != nil {
-		return domain_product.ErrFailedValidation
+		return err
 	}
 
 	return p.repo.CreateProduct(ctx, prod)
@@ -67,7 +67,7 @@ func (p *ProductUsecase) DeleteProduct(ctx context.Context, id uuid.UUID) error 
 
 func (p *ProductUsecase) UpdateProduct(ctx context.Context, prod *domain_product.Product) error {
 	if err := prod.Validate(); err != nil {
-		return domain_product.ErrFailedValidation
+		return err
 	}
 
 	return p.repo.UpdateProduct(ctx, prod)

@@ -80,7 +80,12 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	err := h.usc.CreateProduct(r.Context(), &prod)
 	if err != nil {
 		switch {
-		case errors.Is(err, domain_product.ErrFailedValidation):
+		case errors.Is(err, domain_product.ErrEmptyProductName),
+			errors.Is(err, domain_product.ErrInvalidProductName),
+			errors.Is(err, domain_product.ErrEmptyProductSlug),
+			errors.Is(err, domain_product.ErrInvalidProductPrice),
+			errors.Is(err, domain_product.ErrNegativeStock),
+			errors.Is(err, domain_product.ErrLongDescription):
 			httphelpers.RespondWarnWithDesc(r.Context(), w, r, http.StatusBadRequest, "failed to validate product", "product is invalid", err.Error())
 			return
 		case errors.Is(err, domain_category.ErrCategoryNotFound):
@@ -140,7 +145,12 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.usc.UpdateProduct(r.Context(), &req); err != nil {
 		switch {
-		case errors.Is(err, domain_product.ErrFailedValidation):
+		case errors.Is(err, domain_product.ErrEmptyProductName),
+			errors.Is(err, domain_product.ErrInvalidProductName),
+			errors.Is(err, domain_product.ErrEmptyProductSlug),
+			errors.Is(err, domain_product.ErrInvalidProductPrice),
+			errors.Is(err, domain_product.ErrNegativeStock),
+			errors.Is(err, domain_product.ErrLongDescription):
 			httphelpers.RespondWarnWithDesc(r.Context(), w, r, http.StatusBadRequest, "failed to validate product", "product is invalid", err.Error())
 			return
 		case errors.Is(err, domain_product.ErrProductNotFound):
