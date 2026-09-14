@@ -13,6 +13,11 @@ var (
 	ErrInvalidEmailOrPassword = errors.New("invalid user or password")
 )
 
+const (
+	RoleAdmin    = "admin"
+	RoleCustomer = "customer"
+)
+
 type User struct {
 	ID           int64     `json:"id"`
 	UUID         uuid.UUID `json:"uuid"`

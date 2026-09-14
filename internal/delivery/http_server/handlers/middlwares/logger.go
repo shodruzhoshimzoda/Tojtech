@@ -1,4 +1,4 @@
-package mwlogger
+package middleware
 
 import (
 	"log/slog"
