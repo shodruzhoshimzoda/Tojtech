@@ -13,7 +13,7 @@ type ctxKey string
 
 const (
 	ctxUserUUIDKey ctxKey = "user_uuid"
-	ctxUerRoleKey  ctxKey = "user_role"
+	ctxUserRoleKey ctxKey = "user_role"
 )
 
 // RequireAuth - check that request has a valid JWT, put role and uuid in context
@@ -42,11 +42,15 @@ func RequireAuth(jwtSecret []byte) func(next http.Handler) http.Handler {
 				return
 			}
 
-			sub := claims["sub"].(string)
-			role := claims["role"].(string)
+			sub, okSub := claims["sub"].(string)
+			role, okRole := claims["role"].(string)
 
+			if !okSub || sub == "" || !okRole || role == "" {
+				httphelpers.RespondWarn(r.Context(), w, r, http.StatusUnauthorized, "malformed token claims", "invalid token")
+				return
+			}
 			ctx := context.WithValue(r.Context(), ctxUserUUIDKey, sub)
-			ctx = context.WithValue(ctx, ctxUerRoleKey, role)
+			ctx = context.WithValue(ctx, ctxUserRoleKey, role)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
@@ -59,11 +63,13 @@ func RequireRole(allowedRoles ...string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-			role := r.Context().Value(ctxUerRoleKey).(string)
-			for _, allowed := range allowedRoles {
-				if role == allowed {
-					next.ServeHTTP(w, r)
-					return
+			role, ok := r.Context().Value(ctxUserRoleKey).(string)
+			if ok {
+				for _, allowed := range allowedRoles {
+					if role == allowed {
+						next.ServeHTTP(w, r)
+						return
+					}
 				}
 			}
 
