@@ -61,7 +61,9 @@ func main() {
 		productHandler,
 		categoryHandler,
 		userHandler,
-		log)
+		log,
+		[]byte(cfg.Jwt.Secret),
+	)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.HttpServer.Host, cfg.HttpServer.Port),
