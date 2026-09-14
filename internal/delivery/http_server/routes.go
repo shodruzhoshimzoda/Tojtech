@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/shodruzhoshimzoda/tojtech/internal/delivery/http_server/handlers"
 	mwlogger "github.com/shodruzhoshimzoda/tojtech/internal/delivery/http_server/handlers/middlwares"
+	domain_user "github.com/shodruzhoshimzoda/tojtech/internal/domain/user"
 	"github.com/shodruzhoshimzoda/tojtech/pkg/httphelpers" // замените на ваш пакет для JSON-ответов
 )
 
@@ -16,6 +17,7 @@ func NewRoutes(
 	categoryHandler *handlers.CategoryHandler,
 	authHandler *handlers.AuthHandler,
 	log *slog.Logger,
+	jwtSecret []byte,
 ) chi.Router {
 
 	router := chi.NewRouter()
@@ -37,28 +39,34 @@ func NewRoutes(
 		// for categories
 		r.Route("/categories", func(r chi.Router) {
 			r.Get("/", categoryHandler.GetCategories)
-			r.Post("/", categoryHandler.CreateCategory)
+			r.Get("/{uuid}", categoryHandler.GetCategory)
 
-			r.Route("/{uuid}", func(r chi.Router) {
-				r.Get("/", categoryHandler.GetCategory)
-				r.Patch("/", categoryHandler.UpdateCategory)
-				r.Delete("/", categoryHandler.DeleteCategory)
+			r.Group(func(r chi.Router) {
+				r.Use(mwlogger.RequireAuth(jwtSecret))
+				r.Use(mwlogger.RequireRole(domain_user.RoleAdmin))
+
+				r.Post("/", categoryHandler.CreateCategory)
+				r.Patch("/{uuid}", categoryHandler.UpdateCategory)
+				r.Delete("/{uuid}", categoryHandler.DeleteCategory)
 			})
+
 		})
 
 		// for products
 		r.Route("/products", func(r chi.Router) {
 			r.Get("/", productHandler.GetProducts)
-			r.Post("/", productHandler.CreateProduct)
+			r.Get("/{uuid}", productHandler.GetProduct)
 
-			r.Route("/{uuid}", func(r chi.Router) {
-				r.Get("/", productHandler.GetProduct)
-				r.Patch("/", productHandler.UpdateProduct)
-				r.Delete("/", productHandler.DeleteProduct)
+			r.Group(func(r chi.Router) {
+				r.Use(mwlogger.RequireAuth(jwtSecret))
+				r.Use(mwlogger.RequireRole(domain_user.RoleAdmin))
 
-				// for products image
-				r.Post("/images", productHandler.AddProductImageHandler)
-				r.Delete("/images/{image_uuid}", productHandler.DeleteProductImageHandler)
+				r.Post("/", productHandler.CreateProduct)
+				r.Patch("/{uuid}", productHandler.UpdateProduct)
+				r.Delete("/{uuid}", productHandler.DeleteProduct)
+				r.Post("/{uuid}/images", productHandler.AddProductImageHandler)
+				r.Delete("/{uuid}/images/{image_uuid}", productHandler.DeleteProductImageHandler)
+
 			})
 		})
 
