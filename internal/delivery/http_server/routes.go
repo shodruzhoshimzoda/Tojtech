@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/cors"
 	"github.com/shodruzhoshimzoda/tojtech/internal/delivery/http_server/handlers"
 	mwlogger "github.com/shodruzhoshimzoda/tojtech/internal/delivery/http_server/handlers/middlwares"
 	domain_user "github.com/shodruzhoshimzoda/tojtech/internal/domain/user"
@@ -21,6 +22,13 @@ func NewRoutes(
 ) chi.Router {
 
 	router := chi.NewRouter()
+
+	router.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:5173"},
+		AllowedMethods:   []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
 
 	router.Use(middleware.RequestID)
 	router.Use(mwlogger.RequestLogger(log))
