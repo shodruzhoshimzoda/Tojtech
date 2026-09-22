@@ -2,7 +2,7 @@
 @baseUrl = http://localhost:8080/api/v1
 ### 1.Simple user want to create a category - must be 403
 POST {{baseUrl}}/categories
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODk0ODMxNzksImlhdCI6MTc4OTM5Njc3OSwicm9sZSI6ImN1c3RvbWVyIiwic3ViIjoiMmNmYTQ0OGUtOGI4ZC00NmQ1LTk1Y2QtNmRlNzZlY2ZlZDcyIn0.knI0Gc08Pwl9zl7Kc3ugm6Zhwq8PtXD20G0X8SWKMDQ
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3OTAxMzU3MzMsImlhdCI6MTc5MDA0OTMzMywicm9sZSI6ImN1c3RvbWVyIiwic3ViIjoiMmNmYTQ0OGUtOGI4ZC00NmQ1LTk1Y2QtNmRlNzZlY2ZlZDcyIn0.MWy7-trBXJF0iHfEKvGBAiP8t42zUa5_8-AMfUvJXXY
 Content-Type: application/json
 
 { "name": "Test", "slug": "test" }
@@ -19,7 +19,7 @@ Content-Type: application/json
 
 ### 3.admin creates category must be 201
 POST {{baseUrl}}/categories
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODk0ODMxMTUsImlhdCI6MTc4OTM5NjcxNSwicm9sZSI6ImFkbWluIiwic3ViIjoiZTZhMTBmYTQtMDkwYy00NDc0LWJhNzAtZTdmNjNmYjAyZDZiIn0.21dTpEBM_3Q_MbFr-GCP1YYFyqxYtqKV7t3f0FkPm9E
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3OTAxMzU1OTIsImlhdCI6MTc5MDA0OTE5Miwicm9sZSI6ImFkbWluIiwic3ViIjoiZTZhMTBmYTQtMDkwYy00NDc0LWJhNzAtZTdmNjNmYjAyZDZiIn0.ENyCGOp-FPmQZVDHgjluN5Qems7kRQszrKjpHxMmrkc
 Content-Type: application/json
 
 { "name": "Electronics", "slug": "electronics" }
