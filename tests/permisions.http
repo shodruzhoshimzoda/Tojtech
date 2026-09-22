@@ -1,6 +1,6 @@
 
 @baseUrl = http://localhost:8080/api/v1
-### 1. Обычный пользователь пытается создать категорию - должно быть 403
+### 1.Simple user want to create a category - must be 403
 POST {{baseUrl}}/categories
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODk0ODMxNzksImlhdCI6MTc4OTM5Njc3OSwicm9sZSI6ImN1c3RvbWVyIiwic3ViIjoiMmNmYTQ0OGUtOGI4ZC00NmQ1LTk1Y2QtNmRlNzZlY2ZlZDcyIn0.knI0Gc08Pwl9zl7Kc3ugm6Zhwq8PtXD20G0X8SWKMDQ
 Content-Type: application/json
@@ -9,7 +9,7 @@ Content-Type: application/json
 ### Expected: 403 Forbidden
 
 
-### 2. Без токена вообще - должно быть 401
+### 2. Without token must be 401
 POST {{baseUrl}}/categories
 Content-Type: application/json
 
@@ -17,7 +17,7 @@ Content-Type: application/json
 ### Expected: 401 Unauthorized
 
 
-### 3. Admin создаёт категорию - должно быть 201
+### 3.admin creates category must be 201
 POST {{baseUrl}}/categories
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3ODk0ODMxMTUsImlhdCI6MTc4OTM5NjcxNSwicm9sZSI6ImFkbWluIiwic3ViIjoiZTZhMTBmYTQtMDkwYy00NDc0LWJhNzAtZTdmNjNmYjAyZDZiIn0.21dTpEBM_3Q_MbFr-GCP1YYFyqxYtqKV7t3f0FkPm9E
 Content-Type: application/json
@@ -26,6 +26,6 @@ Content-Type: application/json
 ### Expected: 201 Created
 
 
-### 4. GET остаётся публичным даже без токена
+### 4. GET is public without token
 GET {{baseUrl}}/categories
 # Expected: 200 OK
