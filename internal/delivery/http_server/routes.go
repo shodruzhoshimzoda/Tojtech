@@ -88,5 +88,3 @@ func NewRoutes(
 	return router
 }
 
-type Handlers struct {
-}
