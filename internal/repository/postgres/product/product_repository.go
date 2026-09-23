@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -80,48 +81,104 @@ func (r *ProductRepository) GetProduct(ctx context.Context, id uuid.UUID) (*prod
 }
 
 func (r *ProductRepository) GetProducts(ctx context.Context) ([]*product_domain.Product, error) {
-
-	query := "SELECT  uuid, name, slug, description, price, stock, category_id, is_active, created_at, updated_at FROM products"
+	query := `
+		SELECT
+			p.id, p.uuid, p.name, p.slug, p.description, p.price, p.stock,
+			p.category_id, p.is_active, p.created_at, p.updated_at,
+			c.id, c.uuid, c.name, c.slug, c.description, c.created_at
+		FROM products p
+		LEFT JOIN categories c ON p.category_id = c.id
+		WHERE p.is_active = true
+	`
 
 	rows, err := r.dbPool.Query(ctx, query)
-
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return []*product_domain.Product{}, nil
-		}
 		return nil, err
 	}
 	defer rows.Close()
-	var p []*product_domain.Product
+
+	products := make([]*product_domain.Product, 0)
+	productIDs := make([]int64, 0)
 
 	for rows.Next() {
 		var product product_domain.Product
+
+		// LEFT JOIN - у товара может не быть категории, поля тогда NULL.
+		// pgx умеет писать NULL прямо в nil-указатель, если сканировать
+		// в **T (адрес указателя), а не в *T напрямую.
+		var (
+			catID        *int64
+			catUUID      *uuid.UUID
+			catName      *string
+			catSlug      *string
+			catDesc      *string
+			catCreatedAt *time.Time
+		)
+
 		err := rows.Scan(
-			&product.UUID,
-			&product.Name,
-			&product.Slug,
-			&product.Description,
-			&product.Price,
-			&product.Stock,
-			&product.CategoryID,
-			&product.IsActive,
-			&product.CreatedAt,
-			&product.UpdatedAt,
+			&product.ID, &product.UUID, &product.Name, &product.Slug, &product.Description, &product.Price, &product.Stock,
+			&product.CategoryID, &product.IsActive, &product.CreatedAt, &product.UpdatedAt,
+			&catID, &catUUID, &catName, &catSlug, &catDesc, &catCreatedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		p = append(p, &product)
-	}
+		if catID != nil {
+			category := category_domain.Category{
+				ID:        *catID,
+				UUID:      *catUUID,
+				Name:      *catName,
+				Slug:      *catSlug,
+				CreatedAt: *catCreatedAt,
+			}
+			if catDesc != nil {
+				category.Description = *catDesc
+			}
+			product.Category = &category
+		}
 
+		products = append(products, &product)
+		productIDs = append(productIDs, product.ID)
+	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	if len(productIDs) == 0 {
+		return products, nil
+	}
 
-	return p, nil
+	// Одним запросом забираем картинки сразу для всех товаров списка,
+	// вместо отдельного запроса на каждый товар (N+1).
+	imgRows, err := r.dbPool.Query(ctx, `
+		SELECT product_id, uuid, image_url, is_main
+		FROM product_images
+		WHERE product_id = ANY($1)
+	`, productIDs)
+	if err != nil {
+		return nil, fmt.Errorf("get product images: %w", err)
+	}
+	defer imgRows.Close()
+
+	imagesByProduct := make(map[int64][]product_domain.ProductImage)
+	for imgRows.Next() {
+		var productID int64
+		var img product_domain.ProductImage
+		if err := imgRows.Scan(&productID, &img.UUID, &img.ImageURL, &img.IsMain); err != nil {
+			return nil, fmt.Errorf("scan product image: %w", err)
+		}
+		imagesByProduct[productID] = append(imagesByProduct[productID], img)
+	}
+	if err := imgRows.Err(); err != nil {
+		return nil, err
+	}
+
+	for _, p := range products {
+		p.Images = imagesByProduct[p.ID]
+	}
+
+	return products, nil
 }
-
 func (r *ProductRepository) CreateProduct(ctx context.Context, p *product_domain.Product) error {
 	if p.Category == nil {
 		return category_domain.ErrCategoryNotFound
