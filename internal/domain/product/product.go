@@ -3,6 +3,7 @@ package domain_product
 import (
 	"errors"
 	"net/url"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -57,6 +58,9 @@ var (
 func ValidateImageURL(rawURL string) error {
 	if rawURL == "" {
 		return ErrEmptyImageURL
+	}
+	if strings.HasPrefix(rawURL, "data://image/") {
+		return nil
 	}
 	parsed, err := url.ParseRequestURI(rawURL)
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
