@@ -11,6 +11,7 @@ var (
 	ErrUserNotFound           = errors.New("user not found")
 	ErrUserAlreadyExists      = errors.New("user already exists")
 	ErrInvalidEmailOrPassword = errors.New("invalid user or password")
+	ErrInvalidRole = errors.New("role must be either admin or customer")
 )
 
 const (
