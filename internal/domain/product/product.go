@@ -59,7 +59,7 @@ func ValidateImageURL(rawURL string) error {
 	if rawURL == "" {
 		return ErrEmptyImageURL
 	}
-	if strings.HasPrefix(rawURL, "data://image/") {
+	if strings.HasPrefix(rawURL, "data:image/") {
 		return nil
 	}
 	parsed, err := url.ParseRequestURI(rawURL)
