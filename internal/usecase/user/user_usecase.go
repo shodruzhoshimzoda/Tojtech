@@ -18,14 +18,14 @@ type UserRepo interface {
 	GetUserByEmail(ctx context.Context, email string) (domain_user.User, error)
 	GetUserByUUID(ctx context.Context, uuid uuid.UUID) (domain_user.User, error)
 }
-type AuthUsercase struct {
+type AuthUsecase struct {
 	repo      UserRepo
 	jwtSecret []byte
 	ttl       time.Duration
 }
 
-func NewAuthUsercase(repo UserRepo, jwtSecret []byte, ttl time.Duration) *AuthUsercase {
-	return &AuthUsercase{
+func NewAuthUsecase(repo UserRepo, jwtSecret []byte, ttl time.Duration) *AuthUsecase {
+	return &AuthUsecase{
 		repo:      repo,
 		jwtSecret: jwtSecret,
 		ttl:       ttl,
@@ -33,7 +33,7 @@ func NewAuthUsercase(repo UserRepo, jwtSecret []byte, ttl time.Duration) *AuthUs
 }
 
 // RegisterUser - this method will register user to system
-func (u *AuthUsercase) RegisterUser(ctx context.Context, userDTO dto.RegisterDTO) (dto.AuthResponseDTO, error) {
+func (u *AuthUsecase) RegisterUser(ctx context.Context, userDTO dto.RegisterDTO) (dto.AuthResponseDTO, error) {
 	if err := userDTO.Validate(); err != nil {
 		return dto.AuthResponseDTO{}, err
 	}
@@ -63,7 +63,7 @@ func (u *AuthUsercase) RegisterUser(ctx context.Context, userDTO dto.RegisterDTO
 }
 
 // LoginUser
-func (u *AuthUsercase) LoginUser(ctx context.Context, userDTO dto.LoginDTO) (dto.AuthResponseDTO, error) {
+func (u *AuthUsecase) LoginUser(ctx context.Context, userDTO dto.LoginDTO) (dto.AuthResponseDTO, error) {
 	if err := userDTO.Validate(); err != nil {
 		return dto.AuthResponseDTO{}, err
 	}
@@ -86,7 +86,7 @@ func (u *AuthUsercase) LoginUser(ctx context.Context, userDTO dto.LoginDTO) (dto
 	// sign token
 	return u.GenerateToken(&user)
 }
-func (u *AuthUsercase) GenerateToken(user *domain_user.User) (dto.AuthResponseDTO, error) {
+func (u *AuthUsecase) GenerateToken(user *domain_user.User) (dto.AuthResponseDTO, error) {
 	claims := jwt.MapClaims{
 		"sub":  user.UUID.String(),
 		"role": user.Role,
