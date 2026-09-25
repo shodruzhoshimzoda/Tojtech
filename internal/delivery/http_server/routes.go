@@ -1,4 +1,4 @@
-package http_server
+package httpserver
 
 import (
 	"log/slog"
@@ -7,31 +7,39 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/cors"
-	"github.com/shodruzhoshimzoda/tojtech/internal/delivery/http_server/handlers"
+	handler "github.com/shodruzhoshimzoda/tojtech/internal/delivery/http_server/handlers"
+	handlers "github.com/shodruzhoshimzoda/tojtech/internal/delivery/http_server/handlers"
 	mwlogger "github.com/shodruzhoshimzoda/tojtech/internal/delivery/http_server/handlers/middlwares"
-	domain_user "github.com/shodruzhoshimzoda/tojtech/internal/domain/user"
-	"github.com/shodruzhoshimzoda/tojtech/pkg/httphelpers" // замените на ваш пакет для JSON-ответов
+	userdomain "github.com/shodruzhoshimzoda/tojtech/internal/domain/user"
+	"github.com/shodruzhoshimzoda/tojtech/pkg/httphelpers"
 )
 
-func NewRoutes(
-	productHandler *handlers.ProductHandler,
-	categoryHandler *handlers.CategoryHandler,
-	authHandler *handlers.AuthHandler,
-	log *slog.Logger,
-	jwtSecret []byte,
-) chi.Router {
+type Handlers struct {
+	Product  *handler.ProductHandler
+	Category *handler.CategoryHandler
+	Auth     *handler.AuthHandler
+}
+
+type RouterDeps struct {
+	Handlers   Handlers
+	Logger     *slog.Logger
+	JWTSecret  []byte
+	CORSOrigin string
+}
+
+func NewRoutes(deps RouterDeps) chi.Router {
 
 	router := chi.NewRouter()
 
 	router.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"},
+		AllowedOrigins:   []string{deps.CORSOrigin},
 		AllowedMethods:   []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,
 	}))
 
 	router.Use(middleware.RequestID)
-	router.Use(mwlogger.RequestLogger(log))
+	router.Use(mwlogger.RequestLogger(deps.Logger))
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 	router.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
@@ -42,49 +50,58 @@ func NewRoutes(
 		httphelpers.RespondWarn(r.Context(), w, r, http.StatusNotFound, "route not found", "the requested endpoint does not exist")
 	})
 
+
+	requireAdmin := func(r chi.Router) {
+			r.Use(mwlogger.RequireAuth(deps.JWTSecret))
+			r.Use(mwlogger.RequireRole(userdomain.RoleAdmin))
+
+	}
+
 	router.Route("/api/v1", func(r chi.Router) {
-
-		// for categories
-		r.Route("/categories", func(r chi.Router) {
-			r.Get("/", categoryHandler.GetCategories)
-			r.Get("/{uuid}", categoryHandler.GetCategory)
-
-			r.Group(func(r chi.Router) {
-				r.Use(mwlogger.RequireAuth(jwtSecret))
-				r.Use(mwlogger.RequireRole(domain_user.RoleAdmin))
-
-				r.Post("/", categoryHandler.CreateCategory)
-				r.Patch("/{uuid}", categoryHandler.UpdateCategory)
-				r.Delete("/{uuid}", categoryHandler.DeleteCategory)
-			})
-
-		})
-
-		// for products
-		r.Route("/products", func(r chi.Router) {
-			r.Get("/", productHandler.GetProducts)
-			r.Get("/{uuid}", productHandler.GetProduct)
-
-			r.Group(func(r chi.Router) {
-				r.Use(mwlogger.RequireAuth(jwtSecret))
-				r.Use(mwlogger.RequireRole(domain_user.RoleAdmin))
-
-				r.Post("/", productHandler.CreateProduct)
-				r.Patch("/{uuid}", productHandler.UpdateProduct)
-				r.Delete("/{uuid}", productHandler.DeleteProduct)
-				r.Post("/{uuid}/images", productHandler.AddProductImageHandler)
-				r.Delete("/{uuid}/images/{image_uuid}", productHandler.DeleteProductImageHandler)
-
-			})
-		})
-
-		// for registration and authentication
-		r.Route("/auth", func(r chi.Router) {
-			r.Post("/register", authHandler.RegisterUser)
-			r.Post("/login", authHandler.LoginUser)
-		})
+		mountAuthRoutes(r, deps.Handlers.Auth)
+		mountCategoryRoutes(r, deps.Handlers.Category, requireAdmin)
+		mountProductRoutes(r, deps.Handlers.Product, requireAdmin)
 	})
 
+	
+
 	return router
+}
+
+func mountAuthRoutes(r chi.Router, h *handler.AuthHandler) {
+	r.Route("/auth", func(r chi.Router) {
+		r.Post("/register", h.RegisterUser)
+		r.Post("/login", h.LoginUser)
+	})
+}
+
+func mountCategoryRoutes(r chi.Router, h *handlers.CategoryHandler, requireAdmin func(chi.Router)) {
+	r.Route("/categories", func(r chi.Router) {
+		r.Get("/", h.GetCategories)
+		r.Get("/{uuid}", h.GetCategory)
+
+		r.Group(func(r chi.Router) {
+			requireAdmin(r)
+			r.Post("/", h.CreateCategory)
+			r.Patch("/{uuid}", h.UpdateCategory)
+			r.Delete("/{uuid}", h.DeleteCategory)
+		})
+	})
+}
+
+func mountProductRoutes(r chi.Router, h *handlers.ProductHandler, requireAdmin func(chi.Router)) {
+	r.Route("/products", func(r chi.Router) {
+		r.Get("/", h.GetProducts)
+		r.Get("/{uuid}", h.GetProduct)
+
+		r.Group(func(r chi.Router) {
+			requireAdmin(r)
+			r.Post("/", h.CreateProduct)
+			r.Patch("/{uuid}", h.UpdateProduct)
+			r.Delete("/{uuid}", h.DeleteProduct)
+			r.Post("/{uuid}/images", h.AddProductImageHandler)
+			r.Delete("/{uuid}/images/{image_uuid}", h.DeleteProductImageHandler)
+		})
+	})
 }
 
