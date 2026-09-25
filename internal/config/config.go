@@ -24,6 +24,8 @@ type JWTConfig struct {
 }
 
 type HttpServer struct {
+	
+	CORSOrigin  string `yaml:"cors-origin"`
 	Host        string        `yaml:"host" env-default:"localhost"`
 	Port        int           `yaml:"port" env-default:"8080"`
 	Timeout     time.Duration `yaml:"timeout" env-default:"4s"`
