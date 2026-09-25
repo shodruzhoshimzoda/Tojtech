@@ -8,16 +8,17 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shodruzhoshimzoda/tojtech/internal/config"
-	"github.com/shodruzhoshimzoda/tojtech/internal/delivery/http_server"
-	"github.com/shodruzhoshimzoda/tojtech/internal/delivery/http_server/handlers"
+	httpserver "github.com/shodruzhoshimzoda/tojtech/internal/delivery/http_server"
+	handler "github.com/shodruzhoshimzoda/tojtech/internal/delivery/http_server/handlers"
 	"github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres"
-	category_repository "github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres/category"
-	"github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres/product"
-	user_repository "github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres/user"
-	usecase_category "github.com/shodruzhoshimzoda/tojtech/internal/usecase/category"
-	"github.com/shodruzhoshimzoda/tojtech/internal/usecase/product"
-	user_usecase "github.com/shodruzhoshimzoda/tojtech/internal/usecase/user"
+	categoryrepository "github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres/category"
+	productrepository "github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres/product"
+	userrepository "github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres/user"
+	categoryusecase "github.com/shodruzhoshimzoda/tojtech/internal/usecase/category"
+	productusecase "github.com/shodruzhoshimzoda/tojtech/internal/usecase/product"
+	userusecase "github.com/shodruzhoshimzoda/tojtech/internal/usecase/user"
 	"github.com/shodruzhoshimzoda/tojtech/pkg/logger"
 )
 
@@ -40,29 +41,14 @@ func main() {
 
 	log.Info("Connection to database was successfully")
 
-	// for products
-	productRepo := product_repository.NewProductRepository(db)
-	productUseCase := product_usecase.NewProductUsecase(productRepo)
-	productHandler := handlers.NewProductHandler(productUseCase, log)
-
-	// for repositories
-	categoryRepo := category_repository.NewCategoryRepository(db)
-	categoryUseCase := usecase_category.NewCategoryUseCase(categoryRepo)
-	categoryHandler := handlers.NewCategoryHandler(categoryUseCase, log)
-
-	// for users
-	userRepo := user_repository.NewUserRepository(db)
-	userUseCase := user_usecase.NewAuthUsercase(userRepo, []byte(cfg.Jwt.Secret), cfg.Jwt.TokenTTL)
-	userHandler := handlers.NewAuthHandler(userUseCase)
-
 	// our routes
-	router := http_server.NewRoutes(
-		productHandler,
-		categoryHandler,
-		userHandler,
-		log,
-		[]byte(cfg.Jwt.Secret),
-	)
+	
+	router := httpserver.NewRoutes(httpserver.RouterDeps{
+		Handlers:   collectHandlers(db, cfg, log),
+		Logger:     log,
+		JWTSecret:  []byte(cfg.Jwt.Secret),
+		CORSOrigin: cfg.HttpServer.CORSOrigin,
+	})
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf("%s:%d", cfg.HttpServer.Host, cfg.HttpServer.Port),
@@ -78,4 +64,22 @@ func main() {
 		os.Exit(1)
 	}
 
+}
+
+// Collect all hadlers
+func collectHandlers(db *pgxpool.Pool, cfg *config.Config, log *slog.Logger) httpserver.Handlers {
+	productRepo := productrepository.NewProductRepository(db)
+	productUC := productusecase.NewProductUsecase(productRepo)
+
+	categoryRepo := categoryrepository.NewCategoryRepository(db)
+	categoryUC := categoryusecase.NewCategoryUseCase(categoryRepo)
+
+	userRepo := userrepository.NewUserRepository(db)
+	userUC := userusecase.NewAuthUsecase(userRepo, []byte(cfg.Jwt.Secret), cfg.Jwt.TokenTTL)
+
+	return httpserver.Handlers{
+		Product:  handler.NewProductHandler(productUC, log),
+		Category: handler.NewCategoryHandler(categoryUC, log),
+		Auth:     handler.NewAuthHandler(userUC),
+	}
 }
