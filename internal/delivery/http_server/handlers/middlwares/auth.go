@@ -31,7 +31,7 @@ func RequireAuth(jwtSecret []byte) func(next http.Handler) http.Handler {
 			claims := jwt.MapClaims{}
 			token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-					return jwt.ErrSignatureInvalid, nil
+					return nil, jwt.ErrSignatureInvalid
 				}
 
 				return jwtSecret, nil
