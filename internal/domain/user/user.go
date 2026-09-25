@@ -1,4 +1,4 @@
-package domain_user
+package user
 
 import (
 	"errors"

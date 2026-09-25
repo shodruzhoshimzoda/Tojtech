@@ -4,7 +4,7 @@ import (
 	"github.com/google/uuid"
 	"time"
 
-	category_domain "github.com/shodruzhoshimzoda/tojtech/internal/domain/category"
+	categorydomain "github.com/shodruzhoshimzoda/tojtech/internal/domain/category"
 )
 
 type CategoryDTO struct {
@@ -21,7 +21,7 @@ type CategoryResponse struct {
 }
 
 // NewCategoryResponse - DTO
-func NewCategoryResponse(c *category_domain.Category) CategoryResponse {
+func NewCategoryResponse(c *categorydomain.Category) CategoryResponse {
 	return CategoryResponse{
 		UUID:        uuid.UUID(c.UUID),
 		Name:        c.Name,

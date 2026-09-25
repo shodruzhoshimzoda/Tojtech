@@ -1,4 +1,4 @@
-package category_domain
+package category
 
 import (
 	"errors"

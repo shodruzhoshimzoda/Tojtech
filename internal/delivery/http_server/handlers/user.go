@@ -1,4 +1,4 @@
-package handlers
+package handler
 
 import (
 	"encoding/json"
@@ -12,10 +12,10 @@ import (
 )
 
 type AuthHandler struct {
-	usc *user_usecase.AuthUsercase
+	usc *user_usecase.AuthUsecase
 }
 
-func NewAuthHandler(uc *user_usecase.AuthUsercase) *AuthHandler {
+func NewAuthHandler(uc *user_usecase.AuthUsecase) *AuthHandler {
 	return &AuthHandler{
 		usc: uc,
 	}
