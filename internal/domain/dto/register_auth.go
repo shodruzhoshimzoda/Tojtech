@@ -71,9 +71,13 @@ func (l *LoginDTO) Validate() error {
 // AuthResponseDTO - request to user after successfully authentication
 type AuthResponseDTO struct {
 	AccessToken string          `json:"access_token,omitempty"`
+	RefreshToken string          `json:"refresh_token,omitempty"`
 	TokenType   string          `json:"token_type"`
 	ExpiresIn   int             `json:"expires_in"`
 	User        UserResponseDTO `json:"user"`
+}
+type RefreshRequestDTO struct {
+	RefreshToken string `json:"refresh_token"`
 }
 
 type UserResponseDTO struct {
