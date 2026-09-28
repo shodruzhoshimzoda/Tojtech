@@ -99,3 +99,39 @@ func (r *UserRepository) GetUserByUUID(ctx context.Context, uuid uuid.UUID) (dom
 	return user, nil
 
 }
+
+
+func (r *UserRepository) StoreRefreshToken(ctx context.Context, userUUID uuid.UUID, tokenHash string, expiresAt time.Time) error {
+	query := `INSERT INTO refresh_tokens (user_uuid, token_hash, expires_at) VALUES ($1, $2, $3)`
+	_, err := r.db.Exec(ctx, query, userUUID, tokenHash, expiresAt)
+	return err
+}
+
+
+func (r *UserRepository) GetActiveRefreshTokenUserUUID(ctx context.Context, tokenHash string) (uuid.UUID, error) {
+	query := `
+		SELECT user_uuid FROM refresh_tokens
+		WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > NOW()
+	`
+	var userUUID uuid.UUID
+	err := r.db.QueryRow(ctx, query, tokenHash).Scan(&userUUID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, domain_user.ErrInvalidRefreshToken
+	}
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return userUUID, nil
+}
+
+func (r *UserRepository) RevokeRefreshToken(ctx context.Context, tokenHash string) error {
+	query := `UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1 AND revoked_at IS NULL`
+	cmdTag, err := r.db.Exec(ctx, query, tokenHash)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return domain_user.ErrInvalidRefreshToken
+	}
+	return nil
+}
