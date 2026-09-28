@@ -2,6 +2,9 @@ package user_usecase
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -17,18 +20,24 @@ type UserRepo interface {
 	CreateUser(ctx context.Context, user *domain_user.User) (uuid.UUID, error)
 	GetUserByEmail(ctx context.Context, email string) (domain_user.User, error)
 	GetUserByUUID(ctx context.Context, uuid uuid.UUID) (domain_user.User, error)
-}
-type AuthUsecase struct {
-	repo      UserRepo
-	jwtSecret []byte
-	ttl       time.Duration
+	StoreRefreshToken(ctx context.Context, userUUID uuid.UUID, tokenHash string, expiresAt time.Time) error
+	GetActiveRefreshTokenUserUUID(ctx context.Context, tokenHash string) (uuid.UUID, error)
+	RevokeRefreshToken(ctx context.Context, tokenHash string) error
 }
 
-func NewAuthUsecase(repo UserRepo, jwtSecret []byte, ttl time.Duration) *AuthUsecase {
+type AuthUsecase struct {
+	repo       UserRepo
+	jwtSecret  []byte
+	ttl        time.Duration
+	refreshTTL time.Duration
+}
+
+func NewAuthUsecase(repo UserRepo, jwtSecret []byte, ttl, refreshTTL time.Duration) *AuthUsecase {
 	return &AuthUsecase{
-		repo:      repo,
-		jwtSecret: jwtSecret,
-		ttl:       ttl,
+		repo:       repo,
+		jwtSecret:  jwtSecret,
+		ttl:        ttl,
+		refreshTTL: refreshTTL,
 	}
 }
 
@@ -56,10 +65,9 @@ func (u *AuthUsecase) RegisterUser(ctx context.Context, userDTO dto.RegisterDTO)
 	}
 
 	// set user UUID
-
 	user.UUID = userUUID
 
-	return u.GenerateToken(&user)
+	return u.issueTokens(ctx, &user)
 }
 
 // LoginUser
@@ -72,9 +80,7 @@ func (u *AuthUsecase) LoginUser(ctx context.Context, userDTO dto.LoginDTO) (dto.
 	if err != nil {
 		if errors.Is(err, domain_user.ErrUserNotFound) {
 			return dto.AuthResponseDTO{}, domain_user.ErrInvalidEmailOrPassword
-
 		}
-
 		return dto.AuthResponseDTO{}, err
 	}
 
@@ -84,9 +90,69 @@ func (u *AuthUsecase) LoginUser(ctx context.Context, userDTO dto.LoginDTO) (dto.
 	}
 
 	// sign token
-	return u.GenerateToken(&user)
+	return u.issueTokens(ctx, &user)
 }
-func (u *AuthUsecase) GenerateToken(user *domain_user.User) (dto.AuthResponseDTO, error) {
+
+func (u *AuthUsecase) RefreshToken(ctx context.Context, rawRefreshToken string) (dto.AuthResponseDTO, error) {
+	tokenHash := hashRefreshToken(rawRefreshToken)
+
+	userUUID, err := u.repo.GetActiveRefreshTokenUserUUID(ctx, tokenHash)
+	if err != nil {
+		return dto.AuthResponseDTO{}, err
+	}
+
+	if err := u.repo.RevokeRefreshToken(ctx, tokenHash); err != nil {
+		return dto.AuthResponseDTO{}, domain_user.ErrInvalidRefreshToken
+	}
+
+	user, err := u.repo.GetUserByUUID(ctx, userUUID)
+	if err != nil {
+		if errors.Is(err, domain_user.ErrUserNotFound) {
+			return dto.AuthResponseDTO{}, domain_user.ErrInvalidRefreshToken
+		}
+		return dto.AuthResponseDTO{}, err
+	}
+
+	return u.issueTokens(ctx, &user)
+}
+
+
+func (u *AuthUsecase) Logout(ctx context.Context, rawRefreshToken string) error {
+	tokenHash := hashRefreshToken(rawRefreshToken)
+	_ = u.repo.RevokeRefreshToken(ctx, tokenHash)
+	return nil
+}
+
+func (u *AuthUsecase) issueTokens(ctx context.Context, user *domain_user.User) (dto.AuthResponseDTO, error) {
+	accessToken, err := u.signAccessToken(user)
+	if err != nil {
+		return dto.AuthResponseDTO{}, err
+	}
+
+	rawRefreshToken, tokenHash, err := generateRefreshToken()
+	if err != nil {
+		return dto.AuthResponseDTO{}, fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	expiresAt := time.Now().Add(u.refreshTTL)
+	if err := u.repo.StoreRefreshToken(ctx, user.UUID, tokenHash, expiresAt); err != nil {
+		return dto.AuthResponseDTO{}, err
+	}
+
+	return dto.AuthResponseDTO{
+		AccessToken:  accessToken,
+		RefreshToken: rawRefreshToken, // сырой токен уходит клиенту, хеш остаётся только в БД
+		TokenType:    "Bearer",
+		ExpiresIn:    int(u.ttl.Seconds()),
+		User: dto.UserResponseDTO{
+			UUID:  user.UUID.String(),
+			Email: user.Email,
+			Role:  user.Role,
+		},
+	}, nil
+}
+
+func (u *AuthUsecase) signAccessToken(user *domain_user.User) (string, error) {
 	claims := jwt.MapClaims{
 		"sub":  user.UUID.String(),
 		"role": user.Role,
@@ -97,17 +163,21 @@ func (u *AuthUsecase) GenerateToken(user *domain_user.User) (dto.AuthResponseDTO
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(u.jwtSecret)
 	if err != nil {
-		return dto.AuthResponseDTO{}, fmt.Errorf("failed to sign token: %w", err)
+		return "", fmt.Errorf("failed to sign token: %w", err)
 	}
+	return tokenString, nil
+}
 
-	return dto.AuthResponseDTO{
-		AccessToken: tokenString,
-		TokenType:   "Bearer",
-		ExpiresIn:   int(u.ttl.Seconds()), // Возвращаем время жизни в секундах
-		User: dto.UserResponseDTO{
-			UUID:  user.UUID.String(),
-			Email: user.Email,
-			Role:  user.Role,
-		},
-	}, nil
+func generateRefreshToken() (raw string, hash string, err error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", "", err
+	}
+	raw = hex.EncodeToString(b)
+	return raw, hashRefreshToken(raw), nil
+}
+
+func hashRefreshToken(raw string) string {
+	sum := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(sum[:])
 }
