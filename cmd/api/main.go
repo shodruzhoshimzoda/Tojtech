@@ -75,7 +75,7 @@ func collectHandlers(db *pgxpool.Pool, cfg *config.Config, log *slog.Logger) htt
 	categoryUC := categoryusecase.NewCategoryUseCase(categoryRepo)
 
 	userRepo := userrepository.NewUserRepository(db)
-	userUC := userusecase.NewAuthUsecase(userRepo, []byte(cfg.Jwt.Secret), cfg.Jwt.TokenTTL)
+	userUC := userusecase.NewAuthUsecase(userRepo, []byte(cfg.Jwt.Secret), cfg.Jwt.TokenTTL, cfg.Jwt.RefreshTokenTTL)
 
 	return httpserver.Handlers{
 		Product:  handler.NewProductHandler(productUC, log),
