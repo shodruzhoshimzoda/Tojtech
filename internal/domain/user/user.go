@@ -12,6 +12,7 @@ var (
 	ErrUserAlreadyExists      = errors.New("user already exists")
 	ErrInvalidEmailOrPassword = errors.New("invalid user or password")
 	ErrInvalidRole = errors.New("role must be either admin or customer")
+	ErrInvalidRefreshToken = errors.New("invalid or expired refresh token")
 )
 
 const (
