@@ -72,9 +72,10 @@ func mountAuthRoutes(r chi.Router, h *handler.AuthHandler) {
 	r.Route("/auth", func(r chi.Router) {
 		r.Post("/register", h.RegisterUser)
 		r.Post("/login", h.LoginUser)
+		r.Post("/refresh", h.Refresh)
+		r.Post("/logout", h.Logout)
 	})
 }
-
 func mountCategoryRoutes(r chi.Router, h *handlers.CategoryHandler, requireAdmin func(chi.Router)) {
 	r.Route("/categories", func(r chi.Router) {
 		r.Get("/", h.GetCategories)
