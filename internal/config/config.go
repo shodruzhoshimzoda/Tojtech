@@ -21,6 +21,7 @@ type Config struct {
 type JWTConfig struct {
 	Secret   string        `yaml:"secret"`
 	TokenTTL time.Duration `yaml:"token-ttl" env-default:"24h"`
+	RefreshTokenTTL time.Duration `yaml:"refresh-token-ttl" env-default:"720h"`
 }
 
 type HttpServer struct {
