@@ -96,3 +96,41 @@ func (h *AuthHandler) LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	httphelpers.RespondJSON(w, r, http.StatusOK, resp)
 }
+
+
+
+func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
+	op := "AuthHandler.Refresh"
+
+	var req dto.RefreshRequestDTO
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to decode request body", "invalid request body")
+		return
+	}
+	if req.RefreshToken == "" {
+		httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "missing refresh token", "refresh_token is required")
+		return
+	}
+
+	resp, err := h.usc.RefreshToken(r.Context(), req.RefreshToken)
+	if err != nil {
+		if errors.Is(err, domain_user.ErrInvalidRefreshToken) {
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusUnauthorized, "invalid refresh token", "invalid or expired refresh token")
+			return
+		}
+		httphelpers.RespondError(r.Context(), w, r, http.StatusInternalServerError, "failed to refresh token", err, "Internal Server error", op)
+		return
+	}
+
+	httphelpers.RespondJSON(w, r, http.StatusOK, resp)
+}
+
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	var req dto.RefreshRequestDTO
+	_ = json.NewDecoder(r.Body).Decode(&req) // тело необязательно - logout всегда "успешен"
+
+	if req.RefreshToken != "" {
+		_ = h.usc.Logout(r.Context(), req.RefreshToken)
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
