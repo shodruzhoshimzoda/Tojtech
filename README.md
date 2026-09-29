@@ -30,6 +30,9 @@ Before running the application, make sure PostgreSQL is running and create the t
     go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
 ```
 # Apply database migrations:
+SET the username, and database name in local.yaml file: 
+    user: your_username
+    database: your_database
 Set your database password in the current shell session and run the migrations via Makefile
 
 ```
