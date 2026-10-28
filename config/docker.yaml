@@ -1,0 +1,21 @@
+env: "prod" # JSON logs to stdout (use "dev" for debug-level JSON)
+
+jwt:
+  secret: "" # comes from the JWT_SECRET environment variable
+  token-ttl: 24h
+  refresh-token-ttl: 720h
+
+http-server:
+  cors-origin: "http://localhost:5173" # Vite dev server; overridden by CORS_ORIGIN
+  host: "0.0.0.0" # must not be "localhost" inside a container, or nothing can reach it
+  port: 8080
+  timeout: 15s # read/write timeout; 4s is too tight for base64 image uploads
+  idle-timeout: 60s
+
+db-conn:
+  host: "db" # the compose service name
+  port: 5432
+  user: shodruz # overridden by DB_USER
+  database: myshop # overridden by DB_NAME
+  sslmode: disable
+  # password comes from the DB_PASSWORD environment variable

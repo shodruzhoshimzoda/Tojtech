@@ -19,14 +19,15 @@ type Config struct {
 }
 
 type JWTConfig struct {
-	Secret   string        `yaml:"secret"`
+	Secret   string        `yaml:"secret" env:"JWT_SECRET"`
 	TokenTTL time.Duration `yaml:"token-ttl" env-default:"24h"`
 	RefreshTokenTTL time.Duration `yaml:"refresh-token-ttl" env-default:"720h"`
 }
 
 type HttpServer struct {
 	
-	CORSOrigin  string `yaml:"cors-origin"`
+	CORSOrigin  string `yaml:"cors-origin" env:"CORS_ORIGIN"`
+
 	Host        string        `yaml:"host" env-default:"localhost"`
 	Port        int           `yaml:"port" env-default:"8080"`
 	Timeout     time.Duration `yaml:"timeout" env-default:"4s"`
@@ -36,10 +37,11 @@ type HttpServer struct {
 type DatabaseDSN struct {
 	Host     string `yaml:"host" env-default:"localhost"`
 	Port     int    `yaml:"port" env-default:"5432"`
-	User     string `yaml:"user" env-default:"postgres"`
-	Database string `yaml:"database" env-default:"shop"`
+	// DatabaseDSN
+	User     string `yaml:"user" env:"DB_USER" env-default:"postgres"`
+	Database string `yaml:"database" env:"DB_NAME" env-default:"shop"`
 	SSLMode  string `yaml:"sslmode" env-default:"disable"`
-	Password string `yaml:"-" env-default:"DB_PASSWORD"`
+	Password string `yaml:"-" env:"DB_PASSWORD"`
 }
 
 // function for reading config from yaml file and env variables
