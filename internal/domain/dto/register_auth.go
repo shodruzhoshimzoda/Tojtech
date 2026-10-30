@@ -16,8 +16,8 @@ var (
 
 /*	 Registration		*/
 type RegisterDTO struct {
-	Email    string `json:"email,required"`
-	Password string `json:"password,required"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 func (r *RegisterDTO) Validate() error {
@@ -47,8 +47,8 @@ func (r *RegisterDTO) Validate() error {
 /*	Authentication	*/
 
 type LoginDTO struct {
-	Email    string `json:"email,required"`
-	Password string `json:"password,required"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 func (l *LoginDTO) Validate() error {
