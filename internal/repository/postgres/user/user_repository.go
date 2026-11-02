@@ -135,3 +135,50 @@ func (r *UserRepository) RevokeRefreshToken(ctx context.Context, tokenHash strin
 	}
 	return nil
 }
+
+
+func (r *UserRepository) GetUsers(ctx context.Context) ([]domain_user.User, error) {
+	query := `
+		SELECT uuid, email, role, created_at, updated_at
+		FROM users
+		ORDER BY created_at DESC, id DESC
+	`
+
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	users := make([]domain_user.User, 0)
+	for rows.Next() {
+		var u domain_user.User
+		if err := rows.Scan(&u.UUID, &u.Email, &u.Role, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+
+// UpdateUserRole - sets the role of the user with the given uuid
+func (r *UserRepository) UpdateUserRole(ctx context.Context, userUUID uuid.UUID, role string) error {
+	query := `UPDATE users SET role = $2, updated_at = NOW() WHERE uuid = $1`
+
+	cmdTag, err := r.db.Exec(ctx, query, userUUID, role)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return domain_user.ErrUserNotFound
+	}
+
+	return nil
+}
+
+
+
