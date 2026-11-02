@@ -1,4 +1,4 @@
-package user_usecase
+package user
 
 import (
 	"context"
@@ -181,3 +181,5 @@ func hashRefreshToken(raw string) string {
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:])
 }
+
+
