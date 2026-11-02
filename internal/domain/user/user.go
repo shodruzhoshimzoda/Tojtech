@@ -11,8 +11,9 @@ var (
 	ErrUserNotFound           = errors.New("user not found")
 	ErrUserAlreadyExists      = errors.New("user already exists")
 	ErrInvalidEmailOrPassword = errors.New("invalid user or password")
-	ErrInvalidRole = errors.New("role must be either admin or customer")
-	ErrInvalidRefreshToken = errors.New("invalid or expired refresh token")
+	ErrInvalidRole            = errors.New("role must be either admin or customer")
+	ErrInvalidRefreshToken    = errors.New("invalid or expired refresh token")
+	ErrCannotChangeOwnRole    = errors.New("you cannot change your own role")
 )
 
 const (
@@ -28,4 +29,10 @@ type User struct {
 	Role         string    `json:"role"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+
+func IsValidRole(role string) bool {
+	
+	return role == RoleAdmin || role==RoleCustomer
 }
