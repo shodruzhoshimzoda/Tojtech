@@ -76,10 +76,11 @@ func collectHandlers(db *pgxpool.Pool, cfg *config.Config, log *slog.Logger) htt
 
 	userRepo := userrepository.NewUserRepository(db)
 	userUC := userusecase.NewAuthUsecase(userRepo, []byte(cfg.Jwt.Secret), cfg.Jwt.TokenTTL, cfg.Jwt.RefreshTokenTTL)
-
+	adminUC := userusecase.NewAdminUserUsecase(userRepo)
 	return httpserver.Handlers{
 		Product:  handler.NewProductHandler(productUC, log),
 		Category: handler.NewCategoryHandler(categoryUC, log),
 		Auth:     handler.NewAuthHandler(userUC),
+		AdminUser: handler.NewAdminUserHandler(adminUC),
 	}
 }
