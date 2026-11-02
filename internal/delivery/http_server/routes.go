@@ -15,9 +15,10 @@ import (
 )
 
 type Handlers struct {
-	Product  *handler.ProductHandler
-	Category *handler.CategoryHandler
-	Auth     *handler.AuthHandler
+	Product  	*handler.ProductHandler
+	Category 	*handler.CategoryHandler
+	Auth     	*handler.AuthHandler
+	AdminUser 	*handler.AdminUserHandler
 }
 
 type RouterDeps struct {
@@ -61,6 +62,7 @@ func NewRoutes(deps RouterDeps) chi.Router {
 		mountAuthRoutes(r, deps.Handlers.Auth)
 		mountCategoryRoutes(r, deps.Handlers.Category, requireAdmin)
 		mountProductRoutes(r, deps.Handlers.Product, requireAdmin)
+		mountAdminUserRoutes(r, deps.Handlers.AdminUser, requireAdmin)
 	})
 
 	
@@ -106,3 +108,13 @@ func mountProductRoutes(r chi.Router, h *handlers.ProductHandler, requireAdmin f
 	})
 }
 
+// collect handler for get all users for admin
+func mountAdminUserRoutes(r chi.Router, h *handler.AdminUserHandler, requireAdmin func(chi.Router)) {
+	r.Route("/users", func(r chi.Router) {
+		r.Group(func(r chi.Router) {
+			requireAdmin(r)
+			r.Get("/", h.GetUsers)
+			r.Patch("/{uuid}/role", h.ChangeRole)
+		})
+	})
+}
