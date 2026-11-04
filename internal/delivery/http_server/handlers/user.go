@@ -37,9 +37,10 @@ func (h *AuthHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if errors.Is(err, dto.ErrPasswordIsWeek) {
-			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "password is week", "password is week")
-			return
+		var policyErr *domain_user.PasswordPolicyError
+		if errors.As(err, &policyErr) {
+   			 httphelpers.RespondWarnWithDesc(r.Context(), w, r, http.StatusBadRequest,"password does not meet the policy", "weak password", policyErr.Error())
+    		 return
 		}
 
 		if errors.Is(err, dto.ErrEmailRequired) {
