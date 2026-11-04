@@ -139,64 +139,6 @@ Token lifetimes are set in the config file: `jwt.token-ttl` (access token, 24h) 
 
 > **Note:** generate a strong secret with `openssl rand -hex 32` and never commit a real `JWT_SECRET` or database password.
 
-## API overview
-
-All routes are prefixed with `/api/v1`. Protected routes require an `Authorization: Bearer <access_token>` header and an admin role.
-
-### Authentication
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| POST | `/auth/register` | public | Create an account (role `customer`) |
-| POST | `/auth/login` | public | Returns access and refresh tokens |
-| POST | `/auth/refresh` | public | Exchanges a refresh token for a new pair (the old one is revoked) |
-| POST | `/auth/logout` | public | Revokes a refresh token |
-
-### Categories
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| GET | `/categories` | public | List categories |
-| GET | `/categories/{uuid}` | public | Get one category |
-| POST | `/categories` | admin | Create a category |
-| PATCH | `/categories/{uuid}` | admin | Update a category |
-| DELETE | `/categories/{uuid}` | admin | Delete a category |
-
-### Products
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| GET | `/products` | public | List products with category and images |
-| GET | `/products/{uuid}` | public | Get one product |
-| POST | `/products` | admin | Create a product (with optional images) |
-| PATCH | `/products/{uuid}` | admin | Update a product |
-| DELETE | `/products/{uuid}` | admin | Delete a product |
-| POST | `/products/{uuid}/images` | admin | Add an image |
-| DELETE | `/products/{uuid}/images/{image_uuid}` | admin | Delete an image |
-
-Products reference their category by UUID:
-
-```json
-{
-  "name": "Mechanical keyboard",
-  "slug": "mechanical-keyboard",
-  "description": "75% layout, hot-swappable switches",
-  "price": 89.99,
-  "stock": 12,
-  "category": { "uuid": "2f1c8e4a-0c1e-4f7e-9a8b-3d2a1b0c9e11" },
-  "images": [
-    { "image_url": "https://example.com/keyboard.jpg", "is_main": true }
-  ]
-}
-```
-
-### Errors
-
-Errors use a consistent shape. `error` is safe to show to clients, and `error_description` (when present) gives validation details:
-
-```json
-{ "error": "category is invalid", "error_description": "name is required" }
-```
 
 ## Creating the first admin
 
@@ -214,17 +156,3 @@ psql -U your_username -d your_database \
 
 Log in again afterwards so the new role is included in your token.
 
-## Testing
-
-Manual API tests live in `tests/api/` as `.http` files (for example, the REST Client extension for VS Code or the HTTP client in JetBrains IDEs). Run the requests in order: create a category, then a product, then the protected routes with an admin token.
-
-Automated unit and integration tests are not written yet.
-
-## Common problems
-
-- **`DB Password is not set`**: pass `-db-password` or set `DB_PASSWORD`.
-- **`JWT token is not set`**: the `jwt.secret` value is empty. Set `JWT_SECRET` (Docker) or `jwt.secret` in `local.yaml`.
-- **`403 Forbidden` on admin routes after a role change**: log in again, because the role is stored in the access token.
-- **`value too long for type character varying`** when uploading images: migration `000005` must be applied (`make migrate-up`).
-- **Port 8080 already in use**: stop the local `go run` process, or set `API_PORT` when using Docker.
-- **Changes not visible after editing code**: restart the server. A stale binary is the most common cause of confusing results.
