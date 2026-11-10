@@ -10,7 +10,7 @@ import (
 
 type ProductRepo interface {
 	GetProduct(ctx context.Context, uuid uuid.UUID) (*domain_product.Product, error)
-	GetProducts(ctx context.Context) ([]*domain_product.Product, error)
+	GetProducts(ctx context.Context, filter domain_product.Filter) ([]*domain_product.Product, error)
 	CreateProduct(ctx context.Context, product *domain_product.Product) error
 	DeleteProduct(ctx context.Context, uuid uuid.UUID) error
 	UpdateProduct(ctx context.Context, product *domain_product.Product) error
@@ -37,9 +37,9 @@ func (p *ProductUsecase) GetProduct(ctx context.Context, id uuid.UUID) (*domain_
 
 }
 
-func (p *ProductUsecase) ProductList(ctx context.Context) ([]dto.ProductDTO, error) {
+func (p *ProductUsecase) ProductList(ctx context.Context, filter domain_product.Filter) ([]dto.ProductDTO, error) {
 
-	products, err := p.repo.GetProducts(ctx)
+	products, err := p.repo.GetProducts(ctx, filter)
 	if err != nil {
 		return nil, err
 	}

@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	domain_brand "github.com/shodruzhoshimzoda/tojtech/internal/domain/brand"
 	domain_category "github.com/shodruzhoshimzoda/tojtech/internal/domain/category"
 )
 
@@ -37,6 +38,7 @@ type Product struct {
 	CreatedAt   time.Time                 `db:"created_at" json:"created_at"`
 	UpdatedAt   time.Time                 `db:"updated_at" json:"updated_at"`
 	Images      []ProductImage            `json:"images,omitempty"`
+	Brand 		*domain_brand.Brand		  `json:"brand,omitempty"`
 }
 
 type ProductImage struct {
@@ -105,4 +107,10 @@ func (p *Product) Validate() error {
 
 	return nil
 
+}
+
+
+type Filter struct {
+	CategoryUUID *uuid.UUID
+	BrandSlugs   []string
 }

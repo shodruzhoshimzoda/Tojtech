@@ -16,6 +16,14 @@ type ProductDTO struct {
 	CreatedAt   string            `json:"created_at"`
 	UpdatedAt   string            `json:"updated_at"`
 	Images      []ProductImageDTO `json:"images,omitempty"`
+
+	Brand 		*ProductBrandDTO   `json:"brand,omitempty"`
+}
+
+type ProductBrandDTO struct {
+	UUID uuid.UUID `json:"uuid"`
+	Name string    `json:"name"`
+	Slug string    `json:"slug"`
 }
 
 type ProductImageDTO struct {
@@ -41,6 +49,11 @@ func NewProductDTO(p *domain_product.Product) ProductDTO {
 		}
 	}
 
+	var brandDTO *ProductBrandDTO
+	if p.Brand != nil {
+		brandDTO = &ProductBrandDTO{UUID: p.Brand.UUID, Name: p.Brand.Name, Slug: p.Brand.Slug}
+	}
+
 	return ProductDTO{
 		UUID:        p.UUID,
 		Name:        p.Name,
@@ -52,5 +65,6 @@ func NewProductDTO(p *domain_product.Product) ProductDTO {
 		CreatedAt:   p.CreatedAt.Format("2006-01-02 15:04:05"),
 		UpdatedAt:   p.UpdatedAt.Format("2006-01-02 15:04:05"),
 		Images:      imagesDTO,
+		Brand: brandDTO,
 	}
 }
