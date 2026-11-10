@@ -5,10 +5,12 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
+	domain_brand "github.com/shodruzhoshimzoda/tojtech/internal/domain/brand"
 	domain_category "github.com/shodruzhoshimzoda/tojtech/internal/domain/category"
 	"github.com/shodruzhoshimzoda/tojtech/internal/domain/dto"
 	domain_product "github.com/shodruzhoshimzoda/tojtech/internal/domain/product"
@@ -60,7 +62,12 @@ func (h *ProductHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 func (h *ProductHandler) GetProducts(w http.ResponseWriter, r *http.Request) {
 	const op = "ProductHandler.ListProductsHandler"
 
-	products, err := h.usc.ProductList(r.Context())
+	filter, ok := parseProductFilter(w, r)
+	if !ok {
+		return
+	}
+
+	products, err := h.usc.ProductList(r.Context(), filter)
 	if err != nil {
 		httphelpers.RespondError(r.Context(), w, r, http.StatusInternalServerError, "failed to list products", err, "internal server error", op)
 		return
@@ -90,6 +97,9 @@ func (h *ProductHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 			return
 		case errors.Is(err, domain_category.ErrCategoryNotFound):
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to create product", "specified category does not exist")
+			return
+		case errors.Is(err, domain_brand.ErrBrandNotFound):
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to create product", "specified brand does not exist")
 			return
 		case errors.Is(err, domain_product.ErrProductAlreadyExists):
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusConflict, "failed to create product", "product with this slug already exists")
@@ -159,6 +169,9 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, domain_category.ErrCategoryNotFound):
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to update product", "specified category does not exist")
 
+		case errors.Is(err, domain_brand.ErrBrandNotFound):
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "failed to update product", "specified brand does not exist")
+
 		case errors.Is(err, domain_product.ErrProductAlreadyExists):
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusConflict, "failed to update product", "product with this slug already exists")
 
@@ -170,4 +183,33 @@ func (h *ProductHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 
 	prodDTO := dto.NewProductDTO(&req)
 	httphelpers.RespondJSON(w, r, http.StatusOK, map[string]any{"product": prodDTO})
+}
+
+// parseProductFilter reads ?category=<uuid>&brand=asus&brand=msi (or brand=asus,msi) from the URL.
+// If something is wrong, the answer is already sent and false is returned.
+func parseProductFilter(w http.ResponseWriter, r *http.Request) (domain_product.Filter, bool) {
+	var filter domain_product.Filter
+	query := r.URL.Query()
+
+	if raw := query.Get("category"); raw != "" {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusBadRequest, "invalid category uuid in query", "invalid category id")
+			return filter, false
+		}
+		filter.CategoryUUID = &id
+	}
+
+	seen := make(map[string]bool)
+	for _, value := range query["brand"] {
+		for _, slug := range strings.Split(value, ",") {
+			slug = strings.ToLower(strings.TrimSpace(slug))
+			if slug != "" && !seen[slug] {
+				seen[slug] = true
+				filter.BrandSlugs = append(filter.BrandSlugs, slug)
+			}
+		}
+	}
+
+	return filter, true
 }

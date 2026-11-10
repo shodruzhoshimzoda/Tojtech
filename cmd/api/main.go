@@ -12,6 +12,7 @@ import (
 	"github.com/shodruzhoshimzoda/tojtech/internal/config"
 	httpserver "github.com/shodruzhoshimzoda/tojtech/internal/delivery/http_server"
 	handler "github.com/shodruzhoshimzoda/tojtech/internal/delivery/http_server/handlers"
+	
 	"github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres"
 	categoryrepository "github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres/category"
 	productrepository "github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres/product"
@@ -20,6 +21,9 @@ import (
 	productusecase "github.com/shodruzhoshimzoda/tojtech/internal/usecase/product"
 	userusecase "github.com/shodruzhoshimzoda/tojtech/internal/usecase/user"
 	"github.com/shodruzhoshimzoda/tojtech/pkg/logger"
+
+	brandrepository "github.com/shodruzhoshimzoda/tojtech/internal/repository/postgres/brand"
+	brandusecase "github.com/shodruzhoshimzoda/tojtech/internal/usecase/brand"
 )
 
 func main() {
@@ -76,11 +80,17 @@ func collectHandlers(db *pgxpool.Pool, cfg *config.Config, log *slog.Logger) htt
 
 	userRepo := userrepository.NewUserRepository(db)
 	userUC := userusecase.NewAuthUsecase(userRepo, []byte(cfg.Jwt.Secret), cfg.Jwt.TokenTTL, cfg.Jwt.RefreshTokenTTL)
+
 	adminUC := userusecase.NewAdminUserUsecase(userRepo)
+
+	brandRepo := brandrepository.NewBrandRepository(db)
+	brandUC := brandusecase.NewBrandUsecase(brandRepo)
+
 	return httpserver.Handlers{
 		Product:  handler.NewProductHandler(productUC, log),
 		Category: handler.NewCategoryHandler(categoryUC, log),
 		Auth:     handler.NewAuthHandler(userUC),
 		AdminUser: handler.NewAdminUserHandler(adminUC),
+		Brand: handler.NewBrandHandler(brandUC),
 	}
 }

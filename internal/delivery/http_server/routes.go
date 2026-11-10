@@ -19,6 +19,7 @@ type Handlers struct {
 	Category 	*handler.CategoryHandler
 	Auth     	*handler.AuthHandler
 	AdminUser 	*handler.AdminUserHandler
+	Brand 		*handlers.BrandHandler
 }
 
 type RouterDeps struct {
@@ -63,6 +64,7 @@ func NewRoutes(deps RouterDeps) chi.Router {
 		mountCategoryRoutes(r, deps.Handlers.Category, requireAdmin)
 		mountProductRoutes(r, deps.Handlers.Product, requireAdmin)
 		mountAdminUserRoutes(r, deps.Handlers.AdminUser, requireAdmin)
+		mountBrandRoutes(r, deps.Handlers.Brand, requireAdmin)
 	})
 
 	
@@ -115,6 +117,22 @@ func mountAdminUserRoutes(r chi.Router, h *handler.AdminUserHandler, requireAdmi
 			requireAdmin(r)
 			r.Get("/", h.GetUsers)
 			r.Patch("/{uuid}/role", h.ChangeRole)
+		})
+	})
+}
+
+
+func mountBrandRoutes(r chi.Router, h *handler.BrandHandler, requireAdmin func(chi.Router)) {
+	r.Route("/brands", func(r chi.Router) {
+		r.Get("/", h.GetShopBrands) // for the filter panel of the shop
+		r.Get("/{uuid}", h.GetBrand)
+
+		r.Group(func(r chi.Router) {
+			requireAdmin(r)
+			r.Get("/all", h.GetAllBrands) // for the admin panel: all brands with all products counted
+			r.Post("/", h.CreateBrand)
+			r.Patch("/{uuid}", h.UpdateBrand)
+			r.Delete("/{uuid}", h.DeleteBrand)
 		})
 	})
 }

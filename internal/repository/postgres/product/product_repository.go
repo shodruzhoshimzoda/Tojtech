@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	brand_domain "github.com/shodruzhoshimzoda/tojtech/internal/domain/brand"
 	category_domain "github.com/shodruzhoshimzoda/tojtech/internal/domain/category"
 	product_domain "github.com/shodruzhoshimzoda/tojtech/internal/domain/product"
 )
@@ -25,24 +26,64 @@ func NewProductRepository(dbPool *pgxpool.Pool) *ProductRepository {
 		dbPool: dbPool,
 	}
 }
+
+// queryRower is what both the pool and a transaction can do, so one helper works in both.
+type queryRower interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// resolveBrand finds the brand a product points to (the request has only its uuid).
+// No brand in the request (nil or an empty uuid) is fine: the product just has no brand.
+// A uuid that does not exist is an error - otherwise the product would silently lose its brand.
+func resolveBrand(ctx context.Context, q queryRower, b *brand_domain.Brand) (*brand_domain.Brand, error) {
+	if b == nil || b.UUID == uuid.Nil {
+		return nil, nil
+	}
+
+	var found brand_domain.Brand
+	err := q.QueryRow(ctx, `SELECT id, uuid, name, slug FROM brands WHERE uuid = $1`, b.UUID).
+		Scan(&found.ID, &found.UUID, &found.Name, &found.Slug)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, brand_domain.ErrBrandNotFound
+		}
+		return nil, fmt.Errorf("find brand: %w", err)
+	}
+	return &found, nil
+}
+
+// brandIDOrNil gives the value for the brand_id column: the id, or NULL when there is no brand.
+func brandIDOrNil(b *brand_domain.Brand) *int64 {
+	if b == nil {
+		return nil
+	}
+	return &b.ID
+}
+
 func (r *ProductRepository) GetProduct(ctx context.Context, id uuid.UUID) (*product_domain.Product, error) {
 	query := `
        SELECT 
           p.id, p.uuid, p.name, p.slug, p.description, p.price, p.stock, 
           p.category_id, p.is_active, p.created_at, p.updated_at,
-          c.id, c.uuid, c.name, c.slug, c.description, c.created_at
+          c.id, c.uuid, c.name, c.slug, c.description, c.created_at,
+          b.uuid, b.name, b.slug
        FROM products p
        INNER JOIN categories c ON p.category_id = c.id
+       LEFT JOIN brands b ON p.brand_id = b.id
        WHERE p.uuid = $1 AND p.is_active = true
     `
 
 	var product product_domain.Product
 	var category category_domain.Category
+	// LEFT JOIN: a product may have no brand, then these are NULL
+	var brandUUID *uuid.UUID
+	var brandName, brandSlug *string
 
 	err := r.dbPool.QueryRow(ctx, query, id).Scan(
 		&product.ID, &product.UUID, &product.Name, &product.Slug, &product.Description, &product.Price, &product.Stock,
 		&product.CategoryID, &product.IsActive, &product.CreatedAt, &product.UpdatedAt,
 		&category.ID, &category.UUID, &category.Name, &category.Slug, &category.Description, &category.CreatedAt,
+		&brandUUID, &brandName, &brandSlug,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -52,6 +93,9 @@ func (r *ProductRepository) GetProduct(ctx context.Context, id uuid.UUID) (*prod
 	}
 
 	product.Category = &category
+	if brandUUID != nil {
+		product.Brand = &brand_domain.Brand{UUID: *brandUUID, Name: *brandName, Slug: *brandSlug}
+	}
 
 	// --- ДОБАВЛЯЕМ ПОДГРУЗКУ КАРТИНОК ---
 	queryImages := `
@@ -80,18 +124,34 @@ func (r *ProductRepository) GetProduct(ctx context.Context, id uuid.UUID) (*prod
 	return &product, nil
 }
 
-func (r *ProductRepository) GetProducts(ctx context.Context) ([]*product_domain.Product, error) {
+// GetProducts returns active products. The filter narrows the list:
+// brands (any of them) and/or one category. An empty filter returns everything.
+func (r *ProductRepository) GetProducts(ctx context.Context, filter product_domain.Filter) ([]*product_domain.Product, error) {
 	query := `
 		SELECT
 			p.id, p.uuid, p.name, p.slug, p.description, p.price, p.stock,
 			p.category_id, p.is_active, p.created_at, p.updated_at,
-			c.id, c.uuid, c.name, c.slug, c.description, c.created_at
+			c.id, c.uuid, c.name, c.slug, c.description, c.created_at,
+			b.uuid, b.name, b.slug
 		FROM products p
 		LEFT JOIN categories c ON p.category_id = c.id
+		LEFT JOIN brands b ON p.brand_id = b.id
 		WHERE p.is_active = true
+		  AND (COALESCE(cardinality($1::text[]), 0) = 0 OR b.slug = ANY($1::text[]))
+		  AND ($2::uuid IS NULL OR c.uuid = $2::uuid)
 	`
 
-	rows, err := r.dbPool.Query(ctx, query)
+	// A nil slice would go to the database as NULL, so send an empty one instead.
+	brandSlugs := filter.BrandSlugs
+	if brandSlugs == nil {
+		brandSlugs = []string{}
+	}
+	var categoryUUID any // nil -> SQL NULL -> "any category"
+	if filter.CategoryUUID != nil {
+		categoryUUID = *filter.CategoryUUID
+	}
+
+	rows, err := r.dbPool.Query(ctx, query, brandSlugs, categoryUUID)
 	if err != nil {
 		return nil, err
 	}
@@ -113,15 +173,23 @@ func (r *ProductRepository) GetProducts(ctx context.Context) ([]*product_domain.
 			catSlug      *string
 			catDesc      *string
 			catCreatedAt *time.Time
+			brandUUID    *uuid.UUID
+			brandName    *string
+			brandSlug    *string
 		)
 
 		err := rows.Scan(
 			&product.ID, &product.UUID, &product.Name, &product.Slug, &product.Description, &product.Price, &product.Stock,
 			&product.CategoryID, &product.IsActive, &product.CreatedAt, &product.UpdatedAt,
 			&catID, &catUUID, &catName, &catSlug, &catDesc, &catCreatedAt,
+			&brandUUID, &brandName, &brandSlug,
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		if brandUUID != nil {
+			product.Brand = &brand_domain.Brand{UUID: *brandUUID, Name: *brandName, Slug: *brandSlug}
 		}
 
 		if catID != nil {
@@ -191,15 +259,20 @@ func (r *ProductRepository) CreateProduct(ctx context.Context, p *product_domain
 
 	defer tx.Rollback(ctx)
 
+	brand, err := resolveBrand(ctx, tx, p.Brand) // ErrBrandNotFound if the uuid is unknown
+	if err != nil {
+		return err
+	}
+
 	queryProduct := `
-       INSERT INTO products (name, slug, description, price, stock, category_id)
-       SELECT $1, $2, $3, $4, $5, c.id
+       INSERT INTO products (name, slug, description, price, stock, category_id, brand_id)
+       SELECT $1, $2, $3, $4, $5, c.id, $7
        FROM categories c
        WHERE c.uuid = $6
        RETURNING id, uuid, created_at, updated_at
     `
 	err = tx.QueryRow(ctx, queryProduct,
-		p.Name, p.Slug, p.Description, p.Price, p.Stock, p.Category.UUID,
+		p.Name, p.Slug, p.Description, p.Price, p.Stock, p.Category.UUID, brandIDOrNil(brand),
 	).Scan(&p.ID, &p.UUID, &p.CreatedAt, &p.UpdatedAt)
 
 	if err != nil {
@@ -236,6 +309,7 @@ func (r *ProductRepository) CreateProduct(ctx context.Context, p *product_domain
 		return fmt.Errorf("commit transaction: %w", err)
 	}
 
+	p.Brand = brand // now with name and slug, for the response
 	return nil
 }
 
@@ -269,6 +343,11 @@ func (r *ProductRepository) UpdateProduct(ctx context.Context, p *product_domain
 	}
 	defer tx.Rollback(ctx) // откатит если Commit не был
 
+	brand, err := resolveBrand(ctx, tx, p.Brand) // ErrBrandNotFound if the uuid is unknown
+	if err != nil {
+		return err
+	}
+
 	queryProduct := `
 	UPDATE products
 		SET
@@ -278,13 +357,14 @@ func (r *ProductRepository) UpdateProduct(ctx context.Context, p *product_domain
 			price = $4,
 			stock = $5,
 			category_id = (SELECT id FROM categories WHERE uuid = $6), -- если uuid не найден -> NULL
+			brand_id = $8, -- NULL if the request has no brand: the update replaces the whole product
 			updated_at = NOW()
 		WHERE uuid = $7
 	RETURNING id, uuid, name, slug, description, price, stock, category_id, is_active, created_at, updated_at
 	`
 
 	err = tx.QueryRow(ctx, queryProduct,
-		p.Name, p.Slug, p.Description, p.Price, p.Stock, p.Category.UUID, p.UUID,
+		p.Name, p.Slug, p.Description, p.Price, p.Stock, p.Category.UUID, p.UUID, brandIDOrNil(brand),
 	).Scan(
 		&p.ID, &p.UUID, &p.Name, &p.Slug, &p.Description, &p.Price, &p.Stock,
 		&p.CategoryID, &p.IsActive, &p.CreatedAt, &p.UpdatedAt,
@@ -336,6 +416,7 @@ func (r *ProductRepository) UpdateProduct(ctx context.Context, p *product_domain
 		return fmt.Errorf("commit transaction: %w", err)
 	}
 
+	p.Brand = brand // now with name and slug, for the response
 	return nil
 }
 
