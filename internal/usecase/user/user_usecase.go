@@ -56,6 +56,7 @@ func (u *AuthUsecase) RegisterUser(ctx context.Context, userDTO dto.RegisterDTO)
 	user := domain_user.User{
 		Email:        userDTO.Email,
 		PasswordHash: string(hashedPassword),
+		Username: 	  userDTO.Username,
 		Role:         "customer",
 	}
 
@@ -146,6 +147,7 @@ func (u *AuthUsecase) issueTokens(ctx context.Context, user *domain_user.User) (
 		ExpiresIn:    int(u.ttl.Seconds()),
 		User: dto.UserResponseDTO{
 			UUID:  user.UUID.String(),
+			Username: user.Username,
 			Email: user.Email,
 			Role:  user.Role,
 		},
