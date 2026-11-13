@@ -38,6 +38,12 @@ func (h *AuthHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var policyErr *domain_user.PasswordPolicyError
+		
+		// bad username (empty, too short/long, forbidden characters) -> 400
+		if domain_user.IsUsernameError(err) {
+			httphelpers.RespondWarnWithDesc(r.Context(), w, r, http.StatusBadRequest, "invalid username", "invalid username", err.Error())
+			return
+		}
 		if errors.As(err, &policyErr) {
    			 httphelpers.RespondWarnWithDesc(r.Context(), w, r, http.StatusBadRequest,"password does not meet the policy", "weak password", policyErr.Error())
     		 return
@@ -55,6 +61,12 @@ func (h *AuthHandler) RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 		if errors.Is(err, domain_user.ErrUserAlreadyExists) {
 			httphelpers.RespondWarn(r.Context(), w, r, http.StatusConflict, "user already exists", "user with this email already exists")
+			return
+		}
+		
+		// username belongs to another user
+		if errors.Is(err, domain_user.ErrUsernameTaken) {
+			httphelpers.RespondWarn(r.Context(), w, r, http.StatusConflict, "username already taken", "this username is already taken")
 			return
 		}
 
