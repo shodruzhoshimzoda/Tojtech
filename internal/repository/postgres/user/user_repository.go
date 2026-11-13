@@ -24,10 +24,11 @@ func NewUserRepository(db *pgxpool.Pool) *UserRepository {
 // CreateUser - add user to db and register him
 func (r *UserRepository) CreateUser(ctx context.Context, user *domain_user.User) (uuid.UUID, error) {
 	query := `
-		INSERT INTO users (email, password_hash, role, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO users (email, username, password_hash, role, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING uuid
 	`
+
 
 	now := time.Now().UTC()
 	user.CreatedAt = now
@@ -35,6 +36,7 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *domain_user.User)
 
 	err := r.db.QueryRow(ctx, query,
 		user.Email,
+		user.Username,
 		user.PasswordHash,
 		user.Role,
 		user.CreatedAt,
@@ -44,6 +46,11 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *domain_user.User)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation
+			
+			// the constraint name tells which unique rule was broken
+			if pgErr.ConstraintName == "idx_users_username_lower" {
+				return uuid.Nil, domain_user.ErrUsernameTaken
+			}
 			return uuid.Nil, domain_user.ErrUserAlreadyExists
 		}
 		return uuid.Nil, err
@@ -54,12 +61,13 @@ func (r *UserRepository) CreateUser(ctx context.Context, user *domain_user.User)
 }
 
 func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (domain_user.User, error) {
-	query := `SELECT uuid, email, password_hash, role, created_at, updated_at FROM users WHERE email = $1`
+		query := `SELECT uuid, email, COALESCE(username, ''), password_hash, role, created_at, updated_at FROM users WHERE email = $1`
 
 	var user domain_user.User
 	err := r.db.QueryRow(ctx, query, email).Scan(
 		&user.UUID,
 		&user.Email,
+		&user.Username,
 		&user.PasswordHash,
 		&user.Role,
 		&user.CreatedAt,
@@ -77,14 +85,15 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (doma
 
 func (r *UserRepository) GetUserByUUID(ctx context.Context, uuid uuid.UUID) (domain_user.User, error) {
 
-	query := `
-		SELECT uuid, email, password_hash, role, created_at, updated_at
+		query := `
+		SELECT uuid, email, COALESCE(username, ''), password_hash, role, created_at, updated_at
 		FROM users
 		WHERE uuid = $1`
 	var user domain_user.User
 	err := r.db.QueryRow(ctx, query, uuid).Scan(
 		&user.UUID,
 		&user.Email,
+		&user.Username,
 		&user.PasswordHash,
 		&user.Role,
 		&user.CreatedAt,
@@ -139,11 +148,10 @@ func (r *UserRepository) RevokeRefreshToken(ctx context.Context, tokenHash strin
 
 func (r *UserRepository) GetUsers(ctx context.Context) ([]domain_user.User, error) {
 	query := `
-		SELECT uuid, email, role, created_at, updated_at
+		SELECT uuid, email, COALESCE(username, ''), role, created_at, updated_at
 		FROM users
 		ORDER BY created_at DESC, id DESC
 	`
-
 	rows, err := r.db.Query(ctx, query)
 	if err != nil {
 		return nil, err
@@ -153,7 +161,7 @@ func (r *UserRepository) GetUsers(ctx context.Context) ([]domain_user.User, erro
 	users := make([]domain_user.User, 0)
 	for rows.Next() {
 		var u domain_user.User
-		if err := rows.Scan(&u.UUID, &u.Email, &u.Role, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(&u.UUID, &u.Email,&u.Username, &u.Role, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
