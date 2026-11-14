@@ -59,7 +59,12 @@ func NewRoutes(deps RouterDeps) chi.Router {
 
 	}
 
+		requireAuth := func(r chi.Router) {
+		r.Use(mwlogger.RequireAuth(deps.JWTSecret))
+	}
+
 	router.Route("/api/v1", func(r chi.Router) {
+		mountProfileRoutes(r, deps.Handlers.Auth, requireAuth)
 		mountAuthRoutes(r, deps.Handlers.Auth)
 		mountCategoryRoutes(r, deps.Handlers.Category, requireAdmin)
 		mountProductRoutes(r, deps.Handlers.Product, requireAdmin)
@@ -134,5 +139,15 @@ func mountBrandRoutes(r chi.Router, h *handler.BrandHandler, requireAdmin func(c
 			r.Patch("/{uuid}", h.UpdateBrand)
 			r.Delete("/{uuid}", h.DeleteBrand)
 		})
+	})
+}
+
+// the profile of the current user: any logged-in user, no role check
+func mountProfileRoutes(r chi.Router, h *handler.AuthHandler, requireAuth func(chi.Router)) {
+	r.Route("/me", func(r chi.Router) {
+		requireAuth(r)
+		r.Get("/", h.GetMe)
+		r.Patch("/", h.UpdateMe)
+		r.Post("/password", h.ChangePassword)
 	})
 }
