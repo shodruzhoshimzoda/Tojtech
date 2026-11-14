@@ -16,6 +16,7 @@ var (
 /*	 Registration		*/
 type RegisterDTO struct {
 	Email    string `json:"email"`
+	Username string    `json:"username"`
 	Password string `json:"password"`
 }
 
@@ -30,6 +31,13 @@ func (r *RegisterDTO) Validate() error {
 
 	if _, err := mail.ParseAddress(r.Email); err != nil {
 		return domain_user.ErrInvalidEmailOrPassword
+	}
+
+	//username: trim spaces, then check the rules
+
+	r.Username = strings.TrimSpace(r.Username)
+	if err := domain_user.ValidateUsername(r.Username); err != nil {
+		return err
 	}
 
 	if r.Password == "" {
@@ -82,7 +90,8 @@ type RefreshRequestDTO struct {
 }
 
 type UserResponseDTO struct {
-	UUID  string `json:"uuid"`
-	Email string `json:"email"`
-	Role  string `json:"role"`
+	UUID  		string `json:"uuid"`
+	Email		string `json:"email"`
+	Username	string `json:"username"`
+	Role 		string `json:"role"`
 }

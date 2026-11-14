@@ -12,6 +12,7 @@ type AdminUserResponse struct {
 	UUID 	 	string  `json:"uuid"`
 	Role     	string `json:"role"`
 	Email    	string `json:"email"`
+	Username  	string    `json:"username"`
 	CreatedAt 	time.Time `json:"created_at"`
 	UpdatedAt 	time.Time `json:"updated_at"`
 }
@@ -22,6 +23,7 @@ func NewAdminUserResponse (u domain_user.User ) AdminUserResponse {
 		UUID: u.UUID.String(),
 		Role: u.Role,
 		Email: u.Email,
+		Username: u.Username,
 		CreatedAt: u.CreatedAt,
 		UpdatedAt: u.UpdatedAt,
 	}

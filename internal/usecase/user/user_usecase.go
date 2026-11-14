@@ -23,6 +23,9 @@ type UserRepo interface {
 	StoreRefreshToken(ctx context.Context, userUUID uuid.UUID, tokenHash string, expiresAt time.Time) error
 	GetActiveRefreshTokenUserUUID(ctx context.Context, tokenHash string) (uuid.UUID, error)
 	RevokeRefreshToken(ctx context.Context, tokenHash string) error
+
+	UpdateUsername(ctx context.Context, userUUID uuid.UUID, username string) error
+	ChangePassword(ctx context.Context, userUUID uuid.UUID, passwordHash string) error
 }
 
 type AuthUsecase struct {
@@ -56,6 +59,7 @@ func (u *AuthUsecase) RegisterUser(ctx context.Context, userDTO dto.RegisterDTO)
 	user := domain_user.User{
 		Email:        userDTO.Email,
 		PasswordHash: string(hashedPassword),
+		Username: 	  userDTO.Username,
 		Role:         "customer",
 	}
 
@@ -146,6 +150,7 @@ func (u *AuthUsecase) issueTokens(ctx context.Context, user *domain_user.User) (
 		ExpiresIn:    int(u.ttl.Seconds()),
 		User: dto.UserResponseDTO{
 			UUID:  user.UUID.String(),
+			Username: user.Username,
 			Email: user.Email,
 			Role:  user.Role,
 		},
@@ -183,3 +188,64 @@ func hashRefreshToken(raw string) string {
 }
 
 
+// GetProfile - this function return the user profile of current user
+func (u *AuthUsecase) GetProfile(ctx context.Context, userUUID uuid.UUID) (dto.UserResponseDTO, error) {
+
+	user, err := u.repo.GetUserByUUID(context.Background(), userUUID)
+	if err != nil { 
+		return dto.UserResponseDTO{}, err
+	}
+
+	return dto.NewUserResponse(user), nil
+
+
+}
+
+// UpdateProfile - update username and return updated profile
+func (u *AuthUsecase) UpdateProfile(ctx context.Context, userUUID uuid.UUID, req dto.UpdateProfileDTO) (dto.UserResponseDTO,error) {
+	if err := req.Validate(); err != nil {
+		return dto.UserResponseDTO{},nil
+	}
+
+	if err := u.repo.UpdateUsername(ctx, userUUID, req.Username); err != nil {
+		return dto.UserResponseDTO{},nil
+	}
+
+	// return updated profile
+	return u.GetProfile(ctx, userUUID) 
+
+}
+
+
+// ChangePassword - checks the current password, saves the new one, revokes all old sessions
+// and gives this device a fresh session.
+func (u *AuthUsecase) ChangePassword(ctx context.Context, userUUID uuid.UUID, req dto.ChangePasswordDTO) (dto.AuthResponseDTO, error) {
+	if err := req.Validate(); err != nil {
+		return dto.AuthResponseDTO{}, err
+	}
+
+	user, err := u.repo.GetUserByUUID(ctx, userUUID)
+	if err != nil {
+		return dto.AuthResponseDTO{}, err
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.CurrentPassword)); err != nil {
+		return dto.AuthResponseDTO{}, domain_user.ErrWrongCurrentPassword
+	}
+
+	if req.CurrentPassword == req.NewPassword {
+		return dto.AuthResponseDTO{}, domain_user.ErrSamePassword
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return dto.AuthResponseDTO{}, err
+	}
+
+	if err := u.repo.ChangePassword(ctx, userUUID, string(hashed)); err != nil {
+		return dto.AuthResponseDTO{}, err
+	}
+
+	// all refresh tokens are revoked now, so this device needs a new pair
+	return u.issueTokens(ctx, &user)
+}

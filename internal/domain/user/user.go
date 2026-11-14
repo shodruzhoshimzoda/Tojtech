@@ -14,6 +14,11 @@ var (
 	ErrInvalidRole            = errors.New("role must be either admin or customer")
 	ErrInvalidRefreshToken    = errors.New("invalid or expired refresh token")
 	ErrCannotChangeOwnRole    = errors.New("you cannot change your own role")
+
+	// for user profile
+	ErrWrongCurrentPassword   = errors.New("current password is wrong")
+	ErrSamePassword			  = errors.New("The password must be different from current")
+
 )
 
 const (
@@ -25,6 +30,7 @@ type User struct {
 	ID           int64     `json:"id"`
 	UUID         uuid.UUID `json:"uuid"`
 	Email        string    `json:"email"`
+	Username     string    `json:"username"`
 	PasswordHash string    `json:"-"`
 	Role         string    `json:"role"`
 	CreatedAt    time.Time `json:"created_at"`
