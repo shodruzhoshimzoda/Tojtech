@@ -188,5 +188,54 @@ func (r *UserRepository) UpdateUserRole(ctx context.Context, userUUID uuid.UUID,
 	return nil
 }
 
+// UpdateUsername - this function was implemented for updating username
+func (r *UserRepository) UpdateUsername(ctx context.Context, userUUID uuid.UUID,username string) error {
+	query := `UPDATE users SET username = $2, updated_at = NOW() WHERE uuid = $1`
+
+	cmdTag, err := r.db.Exec(ctx, query, userUUID, username)
+
+	if err != nil {
+		// if another user has already this username
+		var pgErr *pgconn.PgError
+
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return domain_user.ErrUsernameTaken
+		}
+		return err
+	}
+
+	// if the user was not found
+	if cmdTag.RowsAffected() == 0 {
+		return domain_user.ErrUserNotFound
+	}
+
+	return nil
+}
 
 
+// ChangePassword - this function implemented for changing password and refresh tokens
+func (r *UserRepository) ChangePassword(ctx context.Context, userUUID uuid.UUID, passwordHash string) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }() // does nothing after a successful Commit
+
+	cmdTag, err := tx.Exec(ctx,
+		`UPDATE users SET password_hash = $2, updated_at = NOW() WHERE uuid = $1`,
+		userUUID, passwordHash)
+	if err != nil {
+		return err
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return domain_user.ErrUserNotFound
+	}
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_uuid = $1 AND revoked_at IS NULL`,
+		userUUID); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
