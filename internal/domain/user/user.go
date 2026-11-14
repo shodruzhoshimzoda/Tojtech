@@ -14,6 +14,11 @@ var (
 	ErrInvalidRole            = errors.New("role must be either admin or customer")
 	ErrInvalidRefreshToken    = errors.New("invalid or expired refresh token")
 	ErrCannotChangeOwnRole    = errors.New("you cannot change your own role")
+
+	// for user profile
+	ErrWrongCurrentPassword   = errors.New("current password is wrong")
+	ErrSamePassword			  = errors.New("The password must be different from current")
+
 )
 
 const (
