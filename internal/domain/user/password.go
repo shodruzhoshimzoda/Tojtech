@@ -20,10 +20,10 @@ func (e *PasswordPolicyError) Error() string {
 }
 
 func ValidatePassword(password string) error {
-	var (
+		var (
 		length                       int
 		hasLower, hasUpper, hasDigit bool
-		hasForbidden                 bool
+		hasSpecial, hasForbidden     bool		// special symbol
 	)
 
 	for _, r := range password { // range goes over characters, not bytes
@@ -35,8 +35,11 @@ func ValidatePassword(password string) error {
 			hasUpper = true
 		case r >= '0' && r <= '9':
 			hasDigit = true
+		case r >= 0x21 && r <= 0x7E:
+			// any other printable ASCII symbol is a special character: ! " # $ % & ' ( ) * + , - . / : ; < = > ? @ [ \ ] ^ _ ` { | } ~
+			hasSpecial = true
 		default:
-			hasForbidden = true
+			hasForbidden = true // a space, a control character or a non-Latin letter
 		}
 	}
 
@@ -45,7 +48,7 @@ func ValidatePassword(password string) error {
 		problems = append(problems, fmt.Sprintf("be %d-%d characters long", PasswordMinLength, PasswordMaxLength))
 	}
 	if hasForbidden {
-		problems = append(problems, "contain only Latin letters and digits")
+		problems = append(problems, "contain only Latin letters, digits and symbols (no spaces)")
 	}
 	if !hasLower {
 		problems = append(problems, "contain a lowercase letter")
@@ -55,6 +58,9 @@ func ValidatePassword(password string) error {
 	}
 	if !hasDigit {
 		problems = append(problems, "contain a digit")
+	}
+	if !hasSpecial {
+		problems = append(problems, "contain a special character (for example _ & - +)")
 	}
 
 	if len(problems) > 0 {
