@@ -1,11 +1,11 @@
 env: "local" # "local","development","production (prod)"
 jwt:
   secret: "MySecretPa33word"
-  token-ttl: 24h
+  token-ttl: 15m
   refresh-token-ttl: 720h
 
 http-server:
-  cors-origin: "*"
+  cors-origin: "localhost:5173"
 
   host: "localhost"
   port: 8080
