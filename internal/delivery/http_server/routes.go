@@ -3,6 +3,7 @@ package httpserver
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -78,9 +79,13 @@ func NewRoutes(deps RouterDeps) chi.Router {
 }
 
 func mountAuthRoutes(r chi.Router, h *handler.AuthHandler) {
+	// at most 10 login/register attempts per minute from one IP (both routes share the counter)
+	authLimit := mwlogger.RateLimit(10, time.Minute)
+
 	r.Route("/auth", func(r chi.Router) {
-		r.Post("/register", h.RegisterUser)
-		r.Post("/login", h.LoginUser)
+		r.Use(mwlogger.LimitBody(64 << 10)) // 64 KB is plenty for an email and a password
+		r.With(authLimit).Post("/register", h.RegisterUser)
+		r.With(authLimit).Post("/login", h.LoginUser)
 		r.Post("/refresh", h.Refresh)
 		r.Post("/logout", h.Logout)
 	})
@@ -144,10 +149,14 @@ func mountBrandRoutes(r chi.Router, h *handler.BrandHandler, requireAdmin func(c
 
 // the profile of the current user: any logged-in user, no role check
 func mountProfileRoutes(r chi.Router, h *handler.AuthHandler, requireAuth func(chi.Router)) {
+	// changing the password needs the current one, so it is a target for guessing: 5 per minute
+	passwordLimit := mwlogger.RateLimit(5, time.Minute)
+
 	r.Route("/me", func(r chi.Router) {
 		requireAuth(r)
+		r.Use(mwlogger.LimitBody(64 << 10))
 		r.Get("/", h.GetMe)
 		r.Patch("/", h.UpdateMe)
-		r.Post("/password", h.ChangePassword)
+		r.With(passwordLimit).Post("/password", h.ChangePassword)
 	})
 }
